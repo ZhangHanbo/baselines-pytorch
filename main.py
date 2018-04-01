@@ -21,7 +21,7 @@ def run(env, agent, max_episode, step_episode):
             action = agent.choose_action(observation)
             observation_, reward, done, info = env.step(action)
             if done and t < 199:
-                reward = 10 * (200 - t)
+                reward = 200 - t
             else:
                 reward = 10 * np.abs(observation_[1])
 
@@ -34,7 +34,7 @@ def run(env, agent, max_episode, step_episode):
                 break
             step += 1
         print('reward: ' + str(total_r) + ' episode: ' + str(episode))
-        if total_r > 50:
+        if total_r > 80:
             RENDER = True
     print('game over')
     env.close()
@@ -51,16 +51,17 @@ if __name__ == "__main__":
     config = {
         'n_features':n_features,
         'n_actions':n_actions,
-        'lr':0.03,
+        'lr':0.001,
         'mom':0,
         'reward_decay':0.9,
         'e_greedy':1,
-        'replace_target_iter':300,
+        'replace_target_iter':600,
         'memory_size':10000,
         'batch_size':64,
         'e_greedy_increment':0.001,
         'optimizer': optim.RMSprop
 
     }
-    RL_brain = agent.DQN(config)
+
+    RL_brain = agent.DuelingDQN(config)
     run(env, RL_brain, 200, 600)
