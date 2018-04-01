@@ -22,19 +22,19 @@ class DDPG(Agent):
         self.replace_tau = config['tau']
         # initialize zero memory [s, a, r, s_]
         self.memory = torch.Tensor(np.zeros((self.memory_size, self.n_features * 2 + 2 + self.n_actions)))
-        self.e_Actor = network.MLP(self.n_features, self.n_actions, outactive=F.tanh)
-        self.t_Actor = network.MLP(self.n_features, self.n_actions, outactive=F.tanh)
+        self.e_Actor = network.MLP(self.n_features, self.n_actions, outactive=F.tanh, outscaler=self.action_bounds)
+        self.t_Actor = network.MLP(self.n_features, self.n_actions, outactive=F.tanh, outscaler=self.action_bounds)
         self.e_Critic = network.MLP(self.n_features + self.n_actions, 1)
         self.t_Critic = network.MLP(self.n_features + self.n_actions, 1)
         self.loss_func = config['critic_loss']()
-        self.optimizer_a = config['optimizer_a'](self.e_Actor.parameters(), lr = -self.lra)
+        self.optimizer_a = config['optimizer_a'](self.e_Actor.parameters(), lr = self.lra)
         self.optimizer_c = config['optimizer_c'](self.e_Critic.parameters(), lr = self.lr)
 
     def choose_action(self,s):
         s = Variable(torch.Tensor(s))
-        anoise = torch.normal(torch.ones(self.n_actions),self.noise * torch.eye(self.n_actions))
+        anoise = torch.normal(torch.zeros(self.n_actions),self.noise * torch.eye(self.n_actions))
         preda = self.e_Actor(s).data
-        return list(torch.clamp(preda + anoise, -self.action_bounds[0], self.action_bounds[0]))
+        return np.array(preda + anoise)
 
     def learn(self):
         # check to replace target parameters
@@ -46,6 +46,7 @@ class DDPG(Agent):
 
         # update critic
         r = Variable(batch_memory[:, (self.n_features + self.n_actions):(self.n_features + self.n_actions+ 1)])
+
         done = Variable(batch_memory[:, (self.n_features + self.n_actions +1):(self.n_features + self.n_actions+ 2)])
         s_ = Variable(batch_memory[:, -self.n_features:])
         q_target = r + self.gamma * self.t_Critic(torch.cat([s_, self.t_Actor(s_)],1))

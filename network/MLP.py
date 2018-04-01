@@ -10,11 +10,17 @@ class MLP(nn.Module):
                  n_outputfeats,   # output dim
                  n_hiddens = [30],  # hidden unit number list
                  nonlinear = F.relu,
-                 outactive = None
+                 outactive = None,
+                 outscaler = None
                  ):
         super(MLP,self).__init__()
         self.nonlinear = nonlinear
         self.outactive = outactive
+        if outscaler is not None:
+            if isinstance(outscaler, (int, long, float)):
+                self.outscaler = Variable(torch.Tensor([outscaler]))
+            else:
+                self.outscaler = Variable(torch.Tensor(outscaler))
         inlists = np.hstack([n_inputfeats,n_hiddens])
         outlists = np.hstack([n_hiddens,n_outputfeats])
         self.layers = nn.ModuleList()
@@ -25,8 +31,11 @@ class MLP(nn.Module):
         for layernum, layer in enumerate(self.layers):
             x = layer(x)
             if layernum == len(self.layers) -1 :
-                if self.outactive:
-                    x = self.outactive(x)
+                if self.outactive is not None:
+                    if self.outscaler is not None:
+                        x = self.outscaler * self.outactive(x)
+                    else:
+                        x = self.outactive(x)
             else:
                 x = self.nonlinear(x)
         return x
