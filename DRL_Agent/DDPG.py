@@ -4,9 +4,9 @@ from torch import optim
 from torch import nn
 import torch.nn.functional as F
 import numpy as np
-from agent.Agent import Agent
+from DRL_Agent.Agent import Agent
 from config import DDPG_CONFIG
-import network
+import Feature_Extractor
 import copy
 
 class DDPG(Agent):
@@ -22,17 +22,17 @@ class DDPG(Agent):
         self.replace_tau = config['tau']
         # initialize zero memory [s, a, r, s_]
         self.memory = torch.Tensor(np.zeros((self.memory_size, self.n_features * 2 + 2 + self.n_actions)))
-        self.e_Actor = network.MLP(self.n_features, self.n_actions, outactive=F.tanh, outscaler=self.action_bounds)
-        self.t_Actor = network.MLP(self.n_features, self.n_actions, outactive=F.tanh, outscaler=self.action_bounds)
-        self.e_Critic = network.MLP(self.n_features + self.n_actions, 1)
-        self.t_Critic = network.MLP(self.n_features + self.n_actions, 1)
+        self.e_Actor = Feature_Extractor.MLP(self.n_features, self.n_actions, outactive=F.tanh, outscaler=self.action_bounds)
+        self.t_Actor = Feature_Extractor.MLP(self.n_features, self.n_actions, outactive=F.tanh, outscaler=self.action_bounds)
+        self.e_Critic = Feature_Extractor.MLP(self.n_features + self.n_actions, 1)
+        self.t_Critic = Feature_Extractor.MLP(self.n_features + self.n_actions, 1)
         self.loss_func = config['critic_loss']()
         self.optimizer_a = config['optimizer_a'](self.e_Actor.parameters(), lr = self.lra)
         self.optimizer_c = config['optimizer_c'](self.e_Critic.parameters(), lr = self.lr)
 
     def choose_action(self,s):
         s = Variable(torch.Tensor(s))
-        anoise = torch.normal(torch.zeros(self.n_actions),self.noise * torch.eye(self.n_actions))
+        anoise = torch.normal(torch.zeros(self.n_actions),self.noise * torch.ones(self.n_actions))
         preda = self.e_Actor(s).data
         return np.array(preda + anoise)
 
@@ -66,14 +66,6 @@ class DDPG(Agent):
         self.loss_a = -self.e_Critic(torch.cat([s, self.e_Actor(s)],1)).mean()
         self.loss_a.backward()
         self.optimizer_a.step()
-
-        '''
-        if self.learn_step_counter % 200 == 0:
-            print(list(self.test_show))
-            self.test_show = torch.zeros(4)
-        self.test_show += torch.Tensor \
-            ([self.loss_a.data[0], self.loss_c.data[0], q_target.mean().data[0], q_eval.mean().data[0]])
-        '''
 
         self.learn_step_counter += 1
         self.noise = self.noise * (

@@ -4,12 +4,12 @@ from torch.autograd import Variable
 import torch.nn.functional as F
 from torch import optim
 import numpy as np
-import network
-from agent.DQN import DQN
+import Feature_Extractor
+from DRL_Agent.DQN import DQN
 import copy
 from config import DQN_CONFIG
 
-class DDQN(DQN):
+class DuelingDQN(DQN):
     def __init__(self,hyperparams):
         config = copy.deepcopy(DQN_CONFIG)
         config.update(hyperparams)
@@ -21,13 +21,13 @@ class DDQN(DQN):
             self.hard_update(self.t_DQN, self.e_DQN)
         batch_memory = self.sample_batch()
 
-        r = Variable(batch_memory[:, self.n_features + 1])
+        self.r = Variable(batch_memory[:, self.n_features + 1])
         s_ = Variable(batch_memory[:, -self.n_features:])
         q_target = self.t_DQN(s_)
         q_eval_wrt_s_ = self.e_DQN(s_)
         a_eval_wrt_s_ = torch.max(q_eval_wrt_s_,1)[1]
         a_indice = [range(q_target.size(0)), list(a_eval_wrt_s_.data.long())]
-        q_target = r + self.gamma * q_target[a_indice]
+        q_target = self.r + self.gamma * q_target[a_indice]
 
         s = Variable(batch_memory[:, :self.n_features])
         q_eval = self.e_DQN(s)

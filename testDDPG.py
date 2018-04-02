@@ -1,7 +1,7 @@
 import gym
 import torch
 import numpy as np
-from agent.DDPG import DDPG
+from DRL_Agent import DDPG, NAF, Agent
 
 def run_game(env, agent):
     step = 0
@@ -57,6 +57,6 @@ if __name__ == "__main__":
         'tau':0.01
     }
 
-    RL = DDPG(config)
+    RL = NAF(config)
     run_game(env,RL)
 

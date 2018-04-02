@@ -28,6 +28,15 @@ DDPG_CONFIG = {
     'critic_loss': MSELoss
 }
 
+NAF_CONFIG = {
+    'tau' : 0.001,
+    'noise_var' : 3,
+    'noise_min' : 0,
+    'noise_decrease' : 0.0005,
+    'optimizer': optim.Adam,
+    'loss': MSELoss
+}
+
 POLICY_BASED_AGENT = {
 
 }

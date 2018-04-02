@@ -4,10 +4,10 @@ from torch.autograd import Variable
 import torch.nn.functional as F
 from torch import optim
 import numpy as np
-import network
-import agent
+import Feature_Extractor
+import DRL_Agent
 import gym
-from experiment.maze_env import Maze
+from Evironment.maze_env import Maze
 
 def run(env, agent, max_episode, step_episode):
     step = 0
@@ -34,7 +34,7 @@ def run(env, agent, max_episode, step_episode):
                 break
             step += 1
         print('reward: ' + str(total_r) + ' episode: ' + str(episode))
-        if total_r > 80:
+        if total_r > 100:
             RENDER = True
     print('game over')
     env.close()
@@ -63,5 +63,5 @@ if __name__ == "__main__":
 
     }
 
-    RL_brain = agent.DuelingDQN(config)
+    RL_brain = DRL_Agent.DQN(config)
     run(env, RL_brain, 200, 600)
