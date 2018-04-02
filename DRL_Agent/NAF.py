@@ -40,7 +40,6 @@ class NAF(Agent):
         batch_memory = self.sample_batch()
         # update step
         r = Variable(batch_memory[:, self.n_features + self.n_actions:self.n_features + self.n_actions + 1])
-        done = Variable(batch_memory[:, (self.n_features + self.n_actions +1):(self.n_features + self.n_actions+ 2)])
         s_ = Variable(batch_memory[:, -self.n_features:])
         V_, _, _ = self.t_NAF(s_)
         q_target = r + self.gamma * V_
@@ -48,17 +47,16 @@ class NAF(Agent):
 
         a = Variable(batch_memory[:, self.n_features:(self.n_actions + self.n_features)])
         s = Variable(batch_memory[:, :self.n_features])
-        V,mu,L = self.t_NAF(s)
-        dist = a - mu
-        A_list = []
-        for t in range(self.batch_size):
-            A_list.append(torch.sum(torch.pow(torch.matmul(dist[t],L[t]),2)))
-        A = -0.5 * torch.cat(A_list).unsqueeze(1)
-        q_eval = V + A
+        V,mu,L = self.e_NAF(s)
+        a_mu = a - mu
+        a_muxL = torch.bmm(a_mu.unsqueeze(1),L)
+        A = -0.5 * torch.bmm( a_muxL, a_muxL.transpose(1,2)).squeeze()
+        q_eval = V.squeeze() + A
 
         self.e_NAF.zero_grad()
         self.loss = self.loss_func(q_eval, q_target)
         self.loss.backward()
+        torch.nn.utils.clip_grad_norm(self.e_NAF.parameters(), 1)
         self.optimizer.step()
 
         self.learn_step_counter += 1

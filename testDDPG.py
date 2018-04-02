@@ -52,8 +52,8 @@ if __name__ == "__main__":
         'noise_var': 3,
         'noise_min':0.05,
         'noise_decrease':0.0005,
-        'lr':0.002,
-        'lr_a':0.001,
+        'lr':0.001,
+        'lr_a': 0.001,
         'tau':0.01
     }
 
