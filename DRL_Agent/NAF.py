@@ -8,7 +8,7 @@ import Feature_Extractor
 import copy
 from DRL_Agent.Agent import Agent
 from config import NAF_CONFIG
-from ValueFunc.NAF import FCNAF
+from ApproFunc.NAF import FCNAF
 
 class NAF(Agent):
     def __init__(self,hyperparams):

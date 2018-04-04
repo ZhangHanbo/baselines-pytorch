@@ -4,3 +4,4 @@ from .DQN import *
 from .DDQN import *
 from .DuelingDQN import *
 from .Agent import *
+from TRPO import *

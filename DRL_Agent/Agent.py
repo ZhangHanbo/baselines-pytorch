@@ -34,9 +34,9 @@ class Agent:
     def learn(self):
         raise NotImplementedError("Must be implemented in subclass.")
 
-    def store_transition(self, s, a, r, s_, done):
-        transition = torch.Tensor(np.hstack((s, a, r, done, s_)))
+    def store_transition(self, transition):
         # replace the old memory with new memory
+        transition = torch.Tensor(transition)
         index = self.memory_counter % self.memory_size
         self.memory[index, :] = transition
         self.memory_counter += 1

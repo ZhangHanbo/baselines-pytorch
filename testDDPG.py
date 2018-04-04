@@ -1,7 +1,10 @@
 import gym
 import torch
 import numpy as np
-from DRL_Agent import DDPG, NAF, Agent
+from DRL_Agent import DDPG, NAF, Agent, TRPO
+
+# if true, the done of the final step in each episode will be set to True.
+FINALDONE =True
 
 def run_game(env, agent):
     step = 0
@@ -13,30 +16,28 @@ def run_game(env, agent):
             if RENDER:
                 env.render()
             # choose action
-            action = agent.choose_action(observation)
+            action, mu ,sigma = agent.choose_action(observation)
             action = np.clip(action, -2, 2)
             # transition
             observation_, reward, done, info = env.step(action)
+            if t == 199 and FINALDONE:
+                done = True
             total_r = total_r + reward
             # store transition
-            agent.store_transition(observation, action, reward/10, observation_, done)
-            # update parameters
-            if step > agent.memory_size:
-                agent.learn()
-
+            transition = torch.Tensor(np.hstack((observation, mu,sigma ,action, reward/10, done, observation_)))
+            agent.store_transition(transition)
             # swap observation
             observation = observation_
-
             step = step + 1
-
             if done:
                 #print('reward: ' + str(total_r) + ' episode: ' + str(i_episode) + ' explore: ' + str(agent.noise))
                 #print("Episode finished after {} timesteps".format(t + 1))
                 break
+        agent.learn()
+        print('episode: '+ str(i_episode)+'   reward: '+str(total_r))
 
         if total_r > -300:
             RENDER = True
-        print('reward: ' + str(total_r) + ' episode: ' + str(i_episode) + ' explore: ' + str(agent.noise))
 
 
 
@@ -46,17 +47,20 @@ if __name__ == "__main__":
     #env = env.unwrapped
     #env.seed(1)
     config = {
-        'n_features' : env.observation_space.shape[0],
-        'n_actions' : env.action_space.shape[0],
-        'action_bounds' : env.action_space.high,
-        'noise_var': 3,
-        'noise_min':0.05,
-        'noise_decrease':0.0005,
-        'lr':0.001,
-        'lr_a': 0.001,
-        'tau':0.01
+        'n_features': env.observation_space.shape[0],
+        'n_actions': env.action_space.shape[0],
+        'action_bounds': env.action_space.high,
+        'memory_size':200
     }
+    '''
+    'noise_var': 3,
+    'noise_min':0.05,
+    'noise_decrease':0.0005,
+    'lr':0.001,
+    'lr_a': 0.001,
+    'tau':0.01
+    '''
 
-    RL = NAF(config)
+    RL = TRPO(config)
     run_game(env,RL)
 
