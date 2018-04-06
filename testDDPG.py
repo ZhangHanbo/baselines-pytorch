@@ -9,10 +9,10 @@ FINALDONE =True
 def run_game(env, agent):
     step = 0
     RENDER = False
-    for i_episode in range(200):
+    for i_episode in range(6000):
         observation = env.reset()
         total_r = 0
-        for t in range(200):
+        for t in range(1000):
             if RENDER:
                 env.render()
             # choose action
@@ -20,8 +20,6 @@ def run_game(env, agent):
             action = np.clip(action, -2, 2)
             # transition
             observation_, reward, done, info = env.step(action)
-            if t == 199 and FINALDONE:
-                done = True
             total_r = total_r + reward
             # store transition
             transition = torch.Tensor(np.hstack((observation, mu,sigma ,action, reward/10, done, observation_)))
@@ -44,13 +42,13 @@ def run_game(env, agent):
 if __name__ == "__main__":
     # maze game
     env = gym.make('Pendulum-v0')
-    #env = env.unwrapped
-    #env.seed(1)
+    env = env.unwrapped
+    env.seed(1)
     config = {
         'n_features': env.observation_space.shape[0],
         'n_actions': env.action_space.shape[0],
         'action_bounds': env.action_space.high,
-        'memory_size':200
+        'memory_size':1000
     }
     '''
     'noise_var': 3,

@@ -10,6 +10,7 @@ from torch.nn.utils.convert_parameters import vector_to_parameters, parameters_t
 import copy
 from config import TRPO_CONFIG
 from ApproFunc.TRPO import FCPOLICYTRPO, FCVALUETRPO
+torch.set_default_tensor_type('torch.DoubleTensor')
 
 class TRPO(Agent):
     def __init__(self,hyperparams):
@@ -24,14 +25,12 @@ class TRPO(Agent):
         self.policy_type = config['policy_type']
         self.value_type = config['value_type']
         self.max_kl = config['max_kl_divergence']
-        # TODO: support coefficient sigmas
-        self.sigma = config['action_var']
         self.memory = torch.Tensor(np.zeros((self.memory_size, self.n_features * 2 + 2 + 3 * self.n_actions)))
         # initial policy and value models
         if self.policy_type == 'FC':
             self.policy = FCPOLICYTRPO(self.n_features,    # input dim
                  self.n_actions,   # output dim
-                 self.sigma,
+                 2,
                  outactive = F.tanh,
                  outscaler = self.action_bounds
                  )
@@ -92,8 +91,8 @@ class TRPO(Agent):
     def mean_kl_divergence(self):
         mu1, sigma1 = self.policy(self.s)
         # 1e-8 make the final derivative not equal 0
-        mu2 = Variable(mu1.data) + 1e-6
-        sigma2 = Variable(sigma1.data) + 1e-6
+        mu2 = Variable(mu1.data)
+        sigma2 = Variable(sigma1.data)
         det1 = torch.cumprod(sigma1,dim = 1)[:,sigma1.size(1)-1]
         det2 = torch.cumprod(sigma2,dim = 1)[:,sigma2.size(1)-1]
         kl = 0.5 * (torch.log(det1) - torch.log(det2) - self.n_actions + torch.sum(sigma2 / sigma1, dim = 1) + torch.sum(torch.pow((mu1 - mu2),2) / sigma1,1))
@@ -130,7 +129,7 @@ class TRPO(Agent):
         mucur, sigmacur = model(self.s)
         # important sampling coefficients
         # imp_fac: should be a 1-D Variable or Tensor, size is the same with a.size(0)
-        imp_fac = self.compute_logp(mucur, sigmacur, self.a) / self.compute_logp(self.mu, self.sigma, self.a)
+        imp_fac = torch.exp (self.compute_logp(mucur, sigmacur, self.a) - self.compute_logp(self.mu, self.sigma, self.a))
         return imp_fac
 
     def object_loss(self, theta):
@@ -147,7 +146,7 @@ class TRPO(Agent):
         max_backtracks = 10
         fval = self.object_loss(x)
         for (_n_backtracks, stepfrac) in enumerate(list(.5 ** torch.range(0, max_backtracks-1))):
-            print("Search number {}...".format(_n_backtracks + 1))
+            #print("Search number {}...".format(_n_backtracks + 1))
             xnew = x + stepfrac * fullstep
             newfval = self.object_loss(xnew)
             actual_improve = fval - newfval
@@ -163,7 +162,6 @@ class TRPO(Agent):
         loss_fn = self.loss_func_v
         def V_closure():
             predicted = value(self.s)
-
             loss = loss_fn(predicted, V_target)
             optimizer.zero_grad()
             loss.backward()
@@ -196,6 +194,7 @@ class TRPO(Agent):
             self.loss, self.policy.parameters(), create_graph=True)
         # loss_grad_vector is a 1-D Variable including all parameters in self.policy
         loss_grad_vector = parameters_to_vector([grad for grad in loss_grad])
+        # solve Ax = -g, A is Hessian Matrix of KL divergence
         trpo_grad_direc = self.conjunction_gradient( - loss_grad_vector)
         shs = .5 * torch.sum(trpo_grad_direc * self.hessian_vector_product(trpo_grad_direc))
         beta = torch.sqrt(self.max_kl / shs)

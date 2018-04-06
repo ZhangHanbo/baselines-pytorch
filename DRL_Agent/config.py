@@ -43,7 +43,6 @@ TRPO_CONFIG = {
     'cg_damping': 1e-3,
     'policy_type': 'FC',
     'value_type': 'FC',
-    'action_var':1,
     'max_kl_divergence':0.001,
     'loss_func_v':MSELoss,
     'v_optimizer':optim.LBFGS

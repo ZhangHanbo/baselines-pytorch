@@ -3,6 +3,7 @@ import numpy as np
 import torch.nn.functional as F
 from torch.autograd import Variable
 from Feature_Extractor.MLP import MLP
+from torch import nn
 
 class FCPOLICYTRPO(MLP):
     def __init__(self,
@@ -15,9 +16,7 @@ class FCPOLICYTRPO(MLP):
                  outscaler = None
                  ):
         self.n_actions = n_actions
-        if sigma is not None:
-            self.fixedsigma = True
-            super(FCPOLICYTRPO, self).__init__(
+        super(FCPOLICYTRPO, self).__init__(
                  n_inputfeats,    # input dim
                  n_actions,   # output dim
                  n_hiddens,  # hidden unit number list
@@ -25,30 +24,12 @@ class FCPOLICYTRPO(MLP):
                  outactive,
                  outscaler
                  )
-            if isinstance(sigma,(int, long, float)):
-                self.sigma = sigma * Variable(torch.ones(n_actions))
-            else:
-                self.sigma = Variable(torch.Tensor(sigma))
-        else:
-            self.fixedsigma = False
-            super(FCPOLICYTRPO, self).__init__(
-                 n_inputfeats,    # input dim
-                 n_actions * 2,   # output dim
-                 n_hiddens,  # hidden unit number list
-                 nonlinear,
-                 outactive,
-                 outscaler
-                 )
+        self.sigma = nn.Parameter(sigma * torch.ones(n_actions))
+
     def forward(self,x):
-        if self.fixedsigma:
-            x = MLP.forward(self, x)
-            return x, self.sigma.expand_as(x)
-        else:
-            x = MLP.forward(self,x)
-            if x.dim() == 1:
-                return x[:self.n_actions], x[-self.n_actions:]
-            else:
-                return x[:,:self.n_actions],x[:,-self.n_actions:]
+        x = MLP.forward(self, x)
+        return x, torch.pow(self.sigma.expand_as(x),2)
+
 
 # TODO: support multi-layer value function in which action is concat before the final layer
 class FCVALUETRPO(MLP):
@@ -67,5 +48,3 @@ class FCVALUETRPO(MLP):
                  outactive,
                  outscaler
                  )
-        def forward(self,s,a):
-            return MLP.forward(self,torch.cat([s,a],dim = 1))
