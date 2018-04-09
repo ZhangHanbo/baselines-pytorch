@@ -1,13 +1,11 @@
 import torch
-from torch import nn
 from torch.autograd import Variable
-import torch.nn.functional as F
-from torch import optim
 import numpy as np
 import Feature_Extractor
 from DRL_Agent.Agent import Agent
 import copy
 from config import DQN_CONFIG
+from ApproFunc.DQN import FCDQN
 
 class DQN(Agent):
     def __init__(self, hyperparams):
@@ -21,8 +19,8 @@ class DQN(Agent):
         # initialize zero memory [s, a, r, s_]
         self.memory = torch.Tensor(np.zeros((self.memory_size, self.n_features * 2 + 3)))
         ## TODO: include other network architectures
-        self.e_DQN = Feature_Extractor.MLP(self.n_features,self.n_actions)
-        self.t_DQN = Feature_Extractor.MLP(self.n_features,self.n_actions)
+        self.e_DQN = FCDQN(self.n_features,self.n_actions)
+        self.t_DQN = FCDQN(self.n_features,self.n_actions)
         self.lossfunc = config['loss']()
         self.optimizer = config['optimizer'](self.e_DQN.parameters(),lr = self.lr, momentum = self.mom)
 

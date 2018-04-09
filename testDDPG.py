@@ -1,7 +1,7 @@
 import gym
 import torch
 import numpy as np
-from DRL_Agent import DDPG, NAF, Agent, TRPO
+from DRL_Agent import DDPG, NAF, Agent, TRPO_Gaussian, PG_Gaussian, NPG_Gaussian
 
 # if true, the done of the final step in each episode will be set to True.
 FINALDONE =True
@@ -12,7 +12,8 @@ def run_game(env, agent):
     for i_episode in range(6000):
         observation = env.reset()
         total_r = 0
-        for t in range(1000):
+        episode_lenth = 400
+        for t in range(episode_lenth):
             if RENDER:
                 env.render()
             # choose action
@@ -20,6 +21,8 @@ def run_game(env, agent):
             action = np.clip(action, -2, 2)
             # transition
             observation_, reward, done, info = env.step(action)
+            if t == episode_lenth - 1:
+                done = True
             total_r = total_r + reward
             # store transition
             transition = torch.Tensor(np.hstack((observation, mu,sigma ,action, reward/10, done, observation_)))
@@ -48,7 +51,9 @@ if __name__ == "__main__":
         'n_features': env.observation_space.shape[0],
         'n_actions': env.action_space.shape[0],
         'action_bounds': env.action_space.high,
-        'memory_size':1000
+        'memory_size':2000,
+        'reward_decay':0.9,
+        'lr' : 0.01
     }
     '''
     'noise_var': 3,
@@ -59,6 +64,6 @@ if __name__ == "__main__":
     'tau':0.01
     '''
 
-    RL = TRPO(config)
+    RL = TRPO_Gaussian(config)
     run_game(env,RL)
 

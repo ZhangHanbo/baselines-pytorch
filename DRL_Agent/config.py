@@ -3,15 +3,15 @@ from torch.nn import MSELoss
 
 AGENT_CONFIG = {
     'lr':0.01,
-    'mom':0,
+    'mom':None,
     'reward_decay':0.9,
-    'e_greedy':0.9,
     'batch_size':32,
     'memory_size': 10000,
 }
 
 DQN_CONFIG = {
-    'replace_target_iter':300,
+    'replace_target_iter':600,
+    'e_greedy':0.9,
     'e_greedy_increment':None,
     'optimizer': optim.RMSprop,
     'loss' : MSELoss
@@ -37,17 +37,24 @@ NAF_CONFIG = {
     'loss': MSELoss
 }
 
-TRPO_CONFIG = {
-    'cg_iters': 10,
-    'cg_residual_tol' : 1e-10,
-    'cg_damping': 1e-3,
-    'policy_type': 'FC',
-    'value_type': 'FC',
-    'max_kl_divergence':0.001,
+PG_CONFIG = {
+    'optimizer':optim.SGD,
+    'value_type' : 'FC',
     'loss_func_v':MSELoss,
     'v_optimizer':optim.LBFGS
 }
 
-POLICY_BASED_AGENT = {
-
+NPG_CONFIG = {
+    'cg_iters': 10,
+    'cg_residual_tol' : 1e-10,
+    'cg_damping': 1e-3,
+    'max_kl_divergence':0.01
 }
+
+TRPO_CONFIG = {
+    'max_search_num' : 10,
+    'accept_ratio' : .1,
+    'step_frac': .5
+}
+
+

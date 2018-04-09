@@ -21,6 +21,8 @@ class MLP(nn.Module):
                 self.outscaler = Variable(torch.Tensor([outscaler]))
             else:
                 self.outscaler = Variable(torch.Tensor(outscaler))
+        else:
+            self.outscaler = None
         inlists = np.hstack([n_inputfeats,n_hiddens])
         outlists = np.hstack([n_hiddens,n_outputfeats])
         self.layers = nn.ModuleList()

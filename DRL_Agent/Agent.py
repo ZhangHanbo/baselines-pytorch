@@ -25,6 +25,7 @@ class Agent:
         self.learn_step_counter = 0
         self.cost_his = []
         self.memory_counter = 0
+        self.memory = torch.Tensor([])
 
     @abc.abstractmethod
     def choose_action(self, s):

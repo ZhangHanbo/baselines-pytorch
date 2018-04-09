@@ -15,26 +15,27 @@ def run(env, agent, max_episode, step_episode):
     for episode in range(max_episode):
         total_r = 0
         observation = env.reset()
-        for t in range(step_episode):
+        while(True):
             if RENDER:
                 env.render()
-            action = agent.choose_action(observation)
+            action,distri = agent.choose_action(observation)
             observation_, reward, done, info = env.step(action)
+            '''
             if done and t < 199:
                 reward = 200 - t
             else:
                 reward = 10 * np.abs(observation_[1])
-
+            '''
             total_r += reward
-            agent.store_transition(observation, action, reward, observation_, done)
-            if step > 200:
-                agent.learn()
+            transition = torch.Tensor(np.hstack((observation, distri, action, reward, done, observation_)))
+            agent.store_transition(transition)
             observation = observation_
             if done:
                 break
             step += 1
+        agent.learn()
         print('reward: ' + str(total_r) + ' episode: ' + str(episode))
-        if total_r > 100:
+        if total_r > -100:
             RENDER = True
     print('game over')
     env.close()
@@ -42,12 +43,14 @@ def run(env, agent, max_episode, step_episode):
 if __name__ == "__main__":
     # maze game
     env = gym.make('MountainCar-v0')
+    env = env.unwrapped
     n_features = env.observation_space.shape[0]
     if env.action_space.shape == ():
         n_actions = env.action_space.n # decrete action space, value based rl brain
     else:
         n_actions = env.action_space.shape[0]
 
+    '''
     config = {
         'n_features':n_features,
         'n_actions':n_actions,
@@ -62,6 +65,15 @@ if __name__ == "__main__":
         'optimizer': optim.RMSprop
 
     }
+    '''
+    config = {
+        'n_features': n_features,
+        'n_actions': n_actions,
+        'lr': 0.01,
+        'memory_size': 2000,
+        'reward_decay': 0.995,
+        'optimizer':optim.Adam
+    }
 
-    RL_brain = DRL_Agent.DQN(config)
-    run(env, RL_brain, 200, 600)
+    RL_brain = DRL_Agent.TRPO_Softmax(config)
+    run(env, RL_brain, 3000, 200)
