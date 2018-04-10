@@ -5,7 +5,7 @@ import Feature_Extractor
 from DRL_Agent.Agent import Agent
 import copy
 from config import DQN_CONFIG
-from ApproFunc.DQN import FCDQN
+from Appro_Func.DQN import FCDQN
 
 class DQN(Agent):
     def __init__(self, hyperparams):

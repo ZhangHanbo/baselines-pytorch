@@ -38,8 +38,9 @@ NAF_CONFIG = {
 }
 
 PG_CONFIG = {
-    'optimizer':optim.SGD,
+    'optimizer':optim.Adam,
     'value_type' : 'FC',
+    'GAE_lambda' : 0.97,            # HIGH-DIMENSIONAL CONTINUOUS CONTROL USING GENERALIZED ADVANTAGE ESTIMATION. 2016 ICLR
     'loss_func_v':MSELoss,
     'v_optimizer':optim.LBFGS
 }

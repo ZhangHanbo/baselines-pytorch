@@ -52,8 +52,8 @@ if __name__ == "__main__":
         'n_actions': env.action_space.shape[0],
         'action_bounds': env.action_space.high,
         'memory_size':2000,
-        'reward_decay':0.9,
-        'lr' : 0.01
+        'reward_decay':0.95,
+        'lr' : 0.003
     }
     '''
     'noise_var': 3,
@@ -64,6 +64,6 @@ if __name__ == "__main__":
     'tau':0.01
     '''
 
-    RL = TRPO_Gaussian(config)
+    RL = NPG_Gaussian(config)
     run_game(env,RL)
 

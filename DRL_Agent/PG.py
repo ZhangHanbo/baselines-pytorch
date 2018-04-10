@@ -9,7 +9,7 @@ from DRL_Agent.Agent import Agent
 from torch.nn.utils.convert_parameters import vector_to_parameters, parameters_to_vector
 import copy
 from config import PG_CONFIG
-from ApproFunc.PG import FCPG_Gaussian, FCPG_Softmax, FCVALUE
+from Appro_Func.PG import FCPG_Gaussian, FCPG_Softmax, FCVALUE
 import abc
 
 class PG(Agent):
@@ -19,15 +19,21 @@ class PG(Agent):
         config.update(hyperparams)
         super(PG, self).__init__(config)
         self.value_type = config['value_type']
-        if self.value_type == 'FC':
-            self.value = FCVALUE(self.n_features,    # input dim
-                 )
-        self.loss_func_v = config['loss_func_v']()
-        if config['v_optimizer'] == optim.LBFGS:
-            self.using_lbfgs_for_V = True
-        else:
-            self.using_lbfgs_for_V = False
-            self.v_optimizer = config['v_optimizer'](self.value.parameters(), lr=self.lr)
+        if self.value_type is not None:
+            # initialize value network architecture
+            if self.value_type == 'FC':
+                self.value = FCVALUE(self.n_features)
+            # choose estimator, including Q, A and GAE.
+            self.lamb = config['GAE_lambda']
+            # value approximator optimizer
+            self.loss_func_v = config['loss_func_v']()
+            if config['v_optimizer'] == optim.LBFGS:
+                self.using_lbfgs_for_V = True
+            else:
+                self.using_lbfgs_for_V = False
+                self.v_optimizer = config['v_optimizer'](self.value.parameters(), lr=self.lr, momentum = self.mom)
+        elif self.value_type is None:
+            self.value = None
         # damping initialization, all the following will be used in PG algorithm
         self.s = Variable(torch.Tensor([]))
         self.a = Variable(torch.Tensor([]))
@@ -45,6 +51,35 @@ class PG(Agent):
     @abc.abstractmethod
     def compute_imp_fac(self, model):
         raise NotImplementedError("Must be implemented in subclass.")
+
+    def estimate_value(self):
+        masks = 1 - self.done
+        returns = Variable(torch.zeros(self.r.size(0), 1))
+        prev_return = 0
+        # using value approximator
+        if self.value_type is not None:
+            values = self.value(self.s)
+            prev_value = 0
+            delta = Variable(torch.zeros(self.r.size(0), 1))
+            advantages = Variable(torch.zeros(self.r.size(0), 1))
+            prev_advantage = 0
+            for i in reversed(range(self.r.size(0))):
+                returns[i] = self.r[i] + self.gamma * prev_return * masks[i]
+                delta[i] = self.r[i] + self.gamma * masks[i] * prev_value - values[i]
+                advantages[i] = delta[i] + self.gamma * self.lamb * masks[i] * prev_advantage
+                prev_return = float(returns[i, 0])
+                prev_value = float(values[i, 0])
+                prev_advantage = float(advantages[i, 0])
+            advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+            # values and advantages are all 2-D Tensor. size: r.size(0) x 1
+            self.V = returns.squeeze()
+            self.A = advantages.squeeze()
+        else:
+            for i in reversed(range(self.r.size(0))):
+                returns[i] = self.r[i] + self.gamma * prev_return * masks[i]
+                prev_return = float(returns[i, 0])
+            self.V = returns.squeeze()
+            self.V = (self.V - self.V.mean()) / (self.V.std() + 1e-8)
 
     def optim_value_lbfgs(self,V_target):
         value = self.value
@@ -83,9 +118,8 @@ class PG(Agent):
         self.sample_batch()
         self.estimate_value()
         imp_fac = self.compute_imp_fac(self.policy)
-        print(torch.max(imp_fac))
         # update policy
-        if self.A is not None:
+        if self.value_type is not None:
             self.loss = - (imp_fac * self.A.squeeze()).mean()
             # update value
             self.update_value()
@@ -136,21 +170,6 @@ class PG_Gaussian(PG):
         # imp_fac: should be a 1-D Variable or Tensor, size is the same with a.size(0)
         imp_fac = torch.exp (self.compute_logp(mucur, sigmacur, self.a) - self.compute_logp(self.mu, self.sigma, self.a))
         return imp_fac
-
-    def estimate_value(self):
-        masks = 1 - self.done
-        values = self.value(self.s)
-        returns = Variable(torch.zeros(self.r.size(0), 1))
-        advantages = Variable(torch.zeros(self.r.size(0), 1))
-        prev_return = 0
-        for i in reversed(range(self.r.size(0))):
-            returns[i] = self.r[i] + self.gamma * prev_return * masks[i]
-            advantages[i] = returns[i] - values[i]
-            prev_return = float(returns[i, 0])
-        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
-        # values and advantages are all 2-D Tensor. size: r.size(0) x 1
-        self.V = returns
-        self.A = advantages
 
     def sample_batch(self):
         if self.memory_counter > self.memory_size:
@@ -213,17 +232,6 @@ class PG_Softmax(PG):
         # imp_fac: should be a 1-D Variable or Tensor, size is the same with a.size(0)
         imp_fac = torch.exp(self.compute_logp(distri, self.a) - self.compute_logp(self.distri, self.a))
         return imp_fac
-
-    def estimate_value(self):
-        masks = 1 - self.done
-        returns = Variable(torch.zeros(self.r.size(0), 1))
-        prev_return = 0
-        for i in reversed(range(self.r.size(0))):
-            returns[i] = self.r[i] + self.gamma * prev_return * masks[i]
-            prev_return = float(returns[i, 0])
-        # returns is 2-D Tensor. size: r.size(0) x 1
-        self.V = returns.squeeze()
-        self.V = (self.V - self.V.mean())/(self.V.std()+1e-8)
 
     def sample_batch(self):
         if self.memory_counter > self.memory_size:

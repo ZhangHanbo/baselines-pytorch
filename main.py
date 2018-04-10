@@ -20,12 +20,6 @@ def run(env, agent, max_episode, step_episode):
                 env.render()
             action,distri = agent.choose_action(observation)
             observation_, reward, done, info = env.step(action)
-            '''
-            if done and t < 199:
-                reward = 200 - t
-            else:
-                reward = 10 * np.abs(observation_[1])
-            '''
             total_r += reward
             transition = torch.Tensor(np.hstack((observation, distri, action, reward, done, observation_)))
             agent.store_transition(transition)
@@ -35,14 +29,22 @@ def run(env, agent, max_episode, step_episode):
             step += 1
         agent.learn()
         print('reward: ' + str(total_r) + ' episode: ' + str(episode))
-        if total_r > -100:
+        if total_r > 200:
             RENDER = True
     print('game over')
     env.close()
 
+
+'''
+if done and t < 199:
+    reward = 200 - t
+else:
+    reward = 10 * np.abs(observation_[1])
+'''
+
 if __name__ == "__main__":
     # maze game
-    env = gym.make('MountainCar-v0')
+    env = gym.make('CartPole-v0')
     env = env.unwrapped
     n_features = env.observation_space.shape[0]
     if env.action_space.shape == ():
@@ -50,8 +52,8 @@ if __name__ == "__main__":
     else:
         n_actions = env.action_space.shape[0]
 
-    '''
-    config = {
+
+    DQNconfig = {
         'n_features':n_features,
         'n_actions':n_actions,
         'lr':0.001,
@@ -65,15 +67,16 @@ if __name__ == "__main__":
         'optimizer': optim.RMSprop
 
     }
-    '''
-    config = {
+
+    PGconfig = {
         'n_features': n_features,
         'n_actions': n_actions,
         'lr': 0.01,
-        'memory_size': 2000,
+        'memory_size': 1000,
         'reward_decay': 0.995,
-        'optimizer':optim.Adam
+        'GAE_lambda': 0.97,
+        'value_type' : 'FC'
     }
 
-    RL_brain = DRL_Agent.TRPO_Softmax(config)
+    RL_brain = DRL_Agent.PG_Softmax(PGconfig)
     run(env, RL_brain, 3000, 200)
