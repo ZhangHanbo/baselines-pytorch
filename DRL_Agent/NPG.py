@@ -61,13 +61,13 @@ class NPG(PG):
         return fisher_vector_product + (self.cg_damping * vector)
 
     @abc.abstractmethod
-    def mean_kl_divergence(self):
+    def mean_kl_divergence(self, using_batch = False):
         raise NotImplementedError("Must be implemented in subclass.")
 
     def learn(self):
         self.sample_batch()
         # imp_fac: should be a 1-D Variable or Tensor, size is the same with a.size(0)
-        imp_fac = self.compute_imp_fac(self.policy)
+        imp_fac = self.compute_imp_fac()
         # values and advantages are all 2-D Tensor. size: r.size(0) x 1
         self.estimate_value()
         # update policy
@@ -95,23 +95,39 @@ class NPG_Gaussian(NPG, PG_Gaussian):
     def __init__(self,hyperparams):
         super(NPG_Gaussian, self).__init__(hyperparams)
 
-    def mean_kl_divergence(self):
-        mu1, sigma1 = self.policy(self.s)
-        # 1e-8 make the final derivative not equal 0
-        mu2 = Variable(mu1.data)
-        sigma2 = Variable(sigma1.data)
-        det1 = torch.cumprod(sigma1,dim = 1)[:,sigma1.size(1)-1]
-        det2 = torch.cumprod(sigma2,dim = 1)[:,sigma2.size(1)-1]
-        kl = 0.5 * (torch.log(det1) - torch.log(det2) - self.n_actions + torch.sum(sigma2 / sigma1, dim = 1) + torch.sum(torch.pow((mu1 - mu2),2) / sigma1,1))
+    def mean_kl_divergence(self, using_batch = False):
+        if using_batch:
+            mu1, sigma1 = self.policy(self.s_batch)
+            mu2, sigma2 = self.mu_batch, self.sigma_batch
+            det1 = torch.cumprod(sigma1, dim=1)[:, sigma1.size(1) - 1]
+            det2 = torch.cumprod(sigma2, dim=1)[:, sigma2.size(1) - 1]
+            kl = 0.5 * (
+                    torch.log(det1) - torch.log(det2) - self.n_actions + torch.sum(sigma2 / sigma1, dim=1) + torch.sum(
+                torch.pow((mu1 - mu2), 2) / sigma1, 1))
+        else:
+            mu1, sigma1 = self.policy(self.s)
+            mu2, sigma2 = self.mu, self.sigma
+            det1 = torch.cumprod(sigma1, dim=1)[:, sigma1.size(1) - 1]
+            det2 = torch.cumprod(sigma2, dim=1)[:, sigma2.size(1) - 1]
+            kl = 0.5 * (
+                    torch.log(det1) - torch.log(det2) - self.n_actions + torch.sum(sigma2 / sigma1, dim=1) + torch.sum(
+                torch.pow((mu1 - mu2), 2) / sigma1, 1))
         return kl.mean()
+
 
 class NPG_Softmax(NPG,PG_Softmax):
     def __init__(self,hyperparams):
         super(NPG_Softmax, self).__init__(hyperparams)
 
-    def mean_kl_divergence(self):
-        distri1 = self.policy(self.s)
-        distri2 = Variable(distri1.data)
-        logratio = torch.log(distri2/distri1)
-        kl = torch.sum(distri2 * logratio , 1)
+    def mean_kl_divergence(self, using_batch = False):
+        if using_batch:
+            distri1 = self.policy(self.s_batch)
+            distri2 = self.distri_batch
+            logratio = torch.log(distri2 / distri1)
+            kl = torch.sum(distri2 * logratio, 1)
+        else:
+            distri1 = self.policy(self.s)
+            distri2 = self.distri
+            logratio = torch.log(distri2 / distri1)
+            kl = torch.sum(distri2 * logratio, 1)
         return kl.mean()

@@ -1,7 +1,7 @@
 import gym
 import torch
 import numpy as np
-from DRL_Agent import DDPG, NAF, Agent, TRPO_Gaussian, PG_Gaussian, NPG_Gaussian
+import DRL_Agent
 
 # if true, the done of the final step in each episode will be set to True.
 FINALDONE =True
@@ -9,7 +9,7 @@ FINALDONE =True
 def run_game(env, agent):
     step = 0
     RENDER = False
-    for i_episode in range(6000):
+    for i_episode in range(3000):
         observation = env.reset()
         total_r = 0
         episode_lenth = 400
@@ -34,10 +34,12 @@ def run_game(env, agent):
                 #print('reward: ' + str(total_r) + ' episode: ' + str(i_episode) + ' explore: ' + str(agent.noise))
                 #print("Episode finished after {} timesteps".format(t + 1))
                 break
-        agent.learn()
-        print('episode: '+ str(i_episode)+'   reward: '+str(total_r))
+        print('episode: ' + str(i_episode) + '   reward: ' + str(total_r))
+        if (i_episode +1) % (agent.memory_size / episode_lenth) ==0:
+            agent.learn()
 
-        if total_r > -300:
+
+        if total_r > 0:
             RENDER = True
 
 
@@ -51,9 +53,12 @@ if __name__ == "__main__":
         'n_features': env.observation_space.shape[0],
         'n_actions': env.action_space.shape[0],
         'action_bounds': env.action_space.high,
-        'memory_size':2000,
+        'memory_size':6000,
         'reward_decay':0.95,
-        'lr' : 0.003
+        'step_per_update':15,
+        'batch_size':128,
+        'GAE_lambda':0.97,
+        'lr' : 0.01
     }
     '''
     'noise_var': 3,
@@ -64,6 +69,6 @@ if __name__ == "__main__":
     'tau':0.01
     '''
 
-    RL = NPG_Gaussian(config)
+    RL = DRL_Agent.AdaptiveKLPPO_Gaussian(config)
     run_game(env,RL)
 

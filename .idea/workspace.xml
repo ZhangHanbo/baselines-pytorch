@@ -3,13 +3,12 @@
   <component name="ChangeListManager">
     <list default="true" id="3229e572-84ab-41f2-8ad6-843b9b535e67" name="Default" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
-      <change beforePath="$PROJECT_DIR$/ApproFunc/DQN.py" afterPath="$PROJECT_DIR$/Appro_Func/DQN.py" />
-      <change beforePath="$PROJECT_DIR$/ApproFunc/NAF.py" afterPath="$PROJECT_DIR$/Appro_Func/NAF.py" />
-      <change beforePath="$PROJECT_DIR$/ApproFunc/PG.py" afterPath="$PROJECT_DIR$/Appro_Func/PG.py" />
-      <change beforePath="$PROJECT_DIR$/ApproFunc/__init__.py" afterPath="$PROJECT_DIR$/Appro_Func/__init__.py" />
-      <change beforePath="$PROJECT_DIR$/DRL_Agent/DQN.py" afterPath="$PROJECT_DIR$/DRL_Agent/DQN.py" />
-      <change beforePath="$PROJECT_DIR$/DRL_Agent/NAF.py" afterPath="$PROJECT_DIR$/DRL_Agent/NAF.py" />
+      <change beforePath="$PROJECT_DIR$/DRL_Agent/Agent.py" afterPath="$PROJECT_DIR$/DRL_Agent/Agent.py" />
+      <change beforePath="$PROJECT_DIR$/DRL_Agent/NPG.py" afterPath="$PROJECT_DIR$/DRL_Agent/NPG.py" />
       <change beforePath="$PROJECT_DIR$/DRL_Agent/PG.py" afterPath="$PROJECT_DIR$/DRL_Agent/PG.py" />
+      <change beforePath="$PROJECT_DIR$/DRL_Agent/PPO.py" afterPath="$PROJECT_DIR$/DRL_Agent/PPO.py" />
+      <change beforePath="$PROJECT_DIR$/DRL_Agent/TRPO.py" afterPath="$PROJECT_DIR$/DRL_Agent/TRPO.py" />
+      <change beforePath="$PROJECT_DIR$/DRL_Agent/__init__.py" afterPath="$PROJECT_DIR$/DRL_Agent/__init__.py" />
       <change beforePath="$PROJECT_DIR$/DRL_Agent/config.py" afterPath="$PROJECT_DIR$/DRL_Agent/config.py" />
       <change beforePath="$PROJECT_DIR$/main.py" afterPath="$PROJECT_DIR$/main.py" />
       <change beforePath="$PROJECT_DIR$/testDDPG.py" afterPath="$PROJECT_DIR$/testDDPG.py" />
@@ -23,19 +22,31 @@
   </component>
   <component name="CoverageDataManager">
     <SUITE FILE_PATH="coverage/Deep_Reinforcement_Learning_PyTorch$DQN.coverage" NAME="DQN Coverage Results" MODIFIED="1522507163163" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/agent" />
-    <SUITE FILE_PATH="coverage/Deep_Reinforcement_Learning_PyTorch$testDDPG.coverage" NAME="testDDPG Coverage Results" MODIFIED="1523258979160" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/Deep_Reinforcement_Learning_PyTorch$main.coverage" NAME="main Coverage Results" MODIFIED="1523326832765" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Deep_Reinforcement_Learning_PyTorch$testDDPG.coverage" NAME="testDDPG Coverage Results" MODIFIED="1523372516684" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Deep_Reinforcement_Learning_PyTorch$main.coverage" NAME="main Coverage Results" MODIFIED="1523372063013" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Deep_Reinforcement_Learning_PyTorch$PG.coverage" NAME="PG Coverage Results" MODIFIED="1523233322589" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/DRL_Agent" />
     <SUITE FILE_PATH="coverage/Deep_Reinforcement_Learning_PyTorch$NAF.coverage" NAME="NAF Coverage Results" MODIFIED="1522592466552" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/DRL_Agent" />
     <SUITE FILE_PATH="coverage/Deep_Reinforcement_Learning_PyTorch$test.coverage" NAME="test Coverage Results" MODIFIED="1522460251207" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
+      <file leaf-file-name="testDDPG.py" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/testDDPG.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="851">
+              <caret line="60" column="18" lean-forward="false" selection-start-line="60" selection-start-column="18" selection-end-line="60" selection-end-column="18" />
+              <folding>
+                <element signature="e#0#10#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
       <file leaf-file-name="main.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/main.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="930">
-              <caret line="71" column="33" lean-forward="true" selection-start-line="71" selection-start-column="33" selection-end-line="71" selection-end-column="33" />
+            <state relative-caret-position="297">
+              <caret line="104" column="27" lean-forward="false" selection-start-line="104" selection-start-column="27" selection-end-line="104" selection-end-column="27" />
               <folding />
             </state>
           </provider>
@@ -44,19 +55,11 @@
       <file leaf-file-name="Agent.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/DRL_Agent/Agent.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="90">
-              <caret line="6" column="15" lean-forward="false" selection-start-line="6" selection-start-column="15" selection-end-line="6" selection-end-column="15" />
-              <folding />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file leaf-file-name="DQN.py" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/Appro_Func/DQN.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="180">
-              <caret line="16" column="58" lean-forward="false" selection-start-line="16" selection-start-column="58" selection-end-line="16" selection-end-column="58" />
-              <folding />
+            <state relative-caret-position="351">
+              <caret line="51" column="41" lean-forward="false" selection-start-line="51" selection-start-column="41" selection-end-line="51" selection-end-column="41" />
+              <folding>
+                <element signature="e#29#41#0" expanded="true" />
+              </folding>
             </state>
           </provider>
         </entry>
@@ -64,8 +67,8 @@
       <file leaf-file-name="TRPO.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/DRL_Agent/TRPO.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="372">
-              <caret line="48" column="0" lean-forward="false" selection-start-line="48" selection-start-column="0" selection-end-line="48" selection-end-column="0" />
+            <state relative-caret-position="600">
+              <caret line="40" column="52" lean-forward="false" selection-start-line="40" selection-start-column="52" selection-end-line="40" selection-end-column="52" />
               <folding>
                 <element signature="e#0#56#0" expanded="true" />
               </folding>
@@ -76,8 +79,8 @@
       <file leaf-file-name="NPG.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/DRL_Agent/NPG.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="286">
-              <caret line="22" column="49" lean-forward="false" selection-start-line="22" selection-start-column="49" selection-end-line="22" selection-end-column="49" />
+            <state relative-caret-position="100">
+              <caret line="99" column="51" lean-forward="true" selection-start-line="99" selection-start-column="31" selection-end-line="99" selection-end-column="51" />
               <folding>
                 <element signature="e#0#52#0" expanded="true" />
               </folding>
@@ -85,11 +88,11 @@
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="PG.py" pinned="false" current-in-tab="true">
+      <file leaf-file-name="PG.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/DRL_Agent/PG.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="174">
-              <caret line="76" column="13" lean-forward="true" selection-start-line="76" selection-start-column="13" selection-end-line="76" selection-end-column="13" />
+            <state relative-caret-position="2618">
+              <caret line="198" column="0" lean-forward="false" selection-start-line="198" selection-start-column="0" selection-end-line="198" selection-end-column="0" />
               <folding>
                 <element signature="e#0#12#0" expanded="true" />
               </folding>
@@ -97,11 +100,33 @@
           </provider>
         </entry>
       </file>
+      <file leaf-file-name="PPO.py" pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/DRL_Agent/PPO.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="1440">
+              <caret line="96" column="0" lean-forward="false" selection-start-line="96" selection-start-column="0" selection-end-line="96" selection-end-column="0" />
+              <folding>
+                <element signature="e#0#42#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="Q_prop.py" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/DRL_Agent/Q_prop.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="0">
+              <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+              <folding />
+            </state>
+          </provider>
+        </entry>
+      </file>
       <file leaf-file-name="config.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/DRL_Agent/config.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="150">
-              <caret line="40" column="26" lean-forward="false" selection-start-line="40" selection-start-column="26" selection-end-line="40" selection-end-column="26" />
+            <state relative-caret-position="300">
+              <caret line="21" column="20" lean-forward="false" selection-start-line="21" selection-start-column="20" selection-end-line="21" selection-end-column="20" />
               <folding />
             </state>
           </provider>
@@ -129,10 +154,19 @@
       <find>fullstep</find>
       <find>vector_to_parameters</find>
       <find>1e-8</find>
-      <find>compute_logp</find>
       <find>object_loss</find>
       <find>self.policy(</find>
+      <find>self.memory</find>
+      <find>compute_logp</find>
+      <find>copy.deepcopy</find>
+      <find>mean_kl_divergence</find>
+      <find>r</find>
+      <find>compute</find>
+      <find>compute_imp_fac</find>
     </findStrings>
+    <replaceStrings>
+      <replace>batch</replace>
+    </replaceStrings>
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -140,8 +174,6 @@
   <component name="IdeDocumentHistory">
     <option name="CHANGED_PATHS">
       <list>
-        <option value="$PROJECT_DIR$/network/alexnet.py" />
-        <option value="$PROJECT_DIR$/network/googlenet.py" />
         <option value="$PROJECT_DIR$/network/resnet.py" />
         <option value="$PROJECT_DIR$/network/incepres.py" />
         <option value="$PROJECT_DIR$/network/mutiperc.py" />
@@ -170,27 +202,29 @@
         <option value="$PROJECT_DIR$/DRL_Agent/utils.py" />
         <option value="$PROJECT_DIR$/PolicyFunc/TRPO.py" />
         <option value="$PROJECT_DIR$/ApproFunc/TRPO.py" />
-        <option value="$PROJECT_DIR$/DRL_Agent/Agent.py" />
         <option value="$PROJECT_DIR$/Feature_Extractor/MLP.py" />
         <option value="$PROJECT_DIR$/ApproFunc/PG.py" />
-        <option value="$PROJECT_DIR$/DRL_Agent/PPO.py" />
-        <option value="$PROJECT_DIR$/DRL_Agent/__init__.py" />
-        <option value="$PROJECT_DIR$/DRL_Agent/TRPO.py" />
         <option value="$PROJECT_DIR$/ApproFunc/DQN.py" />
         <option value="$PROJECT_DIR$/ApproFunc/__init__.py" />
         <option value="$PROJECT_DIR$/DRL_Agent/DQN.py" />
-        <option value="$PROJECT_DIR$/testDDPG.py" />
         <option value="$PROJECT_DIR$/Appro_Func/VALUE.py" />
         <option value="$PROJECT_DIR$/Value_Estimator/config.py" />
         <option value="$PROJECT_DIR$/Value_Estimator/__init__.py" />
         <option value="$PROJECT_DIR$/Value_Estimator/Estimator.py" />
         <option value="$PROJECT_DIR$/Value_Estimator/MC.py" />
         <option value="$PROJECT_DIR$/Value_Estimator/GAE.py" />
-        <option value="$PROJECT_DIR$/DRL_Agent/NPG.py" />
         <option value="$PROJECT_DIR$/Value_Estimator/TD.py" />
+        <option value="$PROJECT_DIR$/DRL_Agent/ACER.py" />
+        <option value="$PROJECT_DIR$/DRL_Agent/Q_prop.py" />
+        <option value="$PROJECT_DIR$/DRL_Agent/__init__.py" />
+        <option value="$PROJECT_DIR$/DRL_Agent/Agent.py" />
         <option value="$PROJECT_DIR$/DRL_Agent/PG.py" />
-        <option value="$PROJECT_DIR$/DRL_Agent/config.py" />
+        <option value="$PROJECT_DIR$/DRL_Agent/NPG.py" />
+        <option value="$PROJECT_DIR$/DRL_Agent/TRPO.py" />
+        <option value="$PROJECT_DIR$/DRL_Agent/PPO.py" />
         <option value="$PROJECT_DIR$/main.py" />
+        <option value="$PROJECT_DIR$/DRL_Agent/config.py" />
+        <option value="$PROJECT_DIR$/testDDPG.py" />
       </list>
     </option>
   </component>
@@ -283,7 +317,7 @@
       </list>
     </option>
   </component>
-  <component name="RunManager" selected="Python.main">
+  <component name="RunManager" selected="Python.testDDPG">
     <configuration name="Agent" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -388,8 +422,8 @@
     </list>
     <recent_temporary>
       <list size="5">
-        <item index="0" class="java.lang.String" itemvalue="Python.main" />
-        <item index="1" class="java.lang.String" itemvalue="Python.testDDPG" />
+        <item index="0" class="java.lang.String" itemvalue="Python.testDDPG" />
+        <item index="1" class="java.lang.String" itemvalue="Python.main" />
         <item index="2" class="java.lang.String" itemvalue="Python.PG" />
         <item index="3" class="java.lang.String" itemvalue="Python.NAF" />
         <item index="4" class="java.lang.String" itemvalue="Python.Agent" />
@@ -427,7 +461,7 @@
       <window_info id="Docker" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="false" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="R Graphics" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
       <window_info id="Database" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
-      <window_info id="SciView" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.334375" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
+      <window_info id="SciView" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.16354166" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
       <window_info id="Structure" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="Debug" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.38033763" sideWeight="0.5928571" order="3" side_tool="false" content_ui="tabs" />
       <window_info id="Favorites" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="2" side_tool="true" content_ui="tabs" />
@@ -517,9 +551,9 @@
     <breakpoint-manager>
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/DRL_Agent/TRPO.py</url>
-          <line>48</line>
-          <option name="timeStamp" value="149" />
+          <url>file://$PROJECT_DIR$/DRL_Agent/PPO.py</url>
+          <line>32</line>
+          <option name="timeStamp" value="169" />
         </line-breakpoint>
       </breakpoints>
       <default-breakpoints>
@@ -529,33 +563,11 @@
           </properties>
         </breakpoint>
       </default-breakpoints>
-      <option name="time" value="150" />
+      <option name="time" value="171" />
     </breakpoint-manager>
     <watches-manager />
   </component>
   <component name="editorHistoryManager">
-    <entry file="file://$USER_HOME$/Workspace/pytorch/lib/python2.7/site-packages/pkg_resources/extern/__init__.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="219">
-          <caret line="29" column="0" lean-forward="false" selection-start-line="29" selection-start-column="0" selection-end-line="29" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$USER_HOME$/Workspace/gym/gym/envs/registration.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="89">
-          <caret line="166" column="0" lean-forward="false" selection-start-line="166" selection-start-column="0" selection-end-line="166" selection-end-column="0" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$USER_HOME$/Workspace/pytorch/lib/python2.7/site-packages/pyglet/__init__.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="301">
-          <caret line="383" column="0" lean-forward="false" selection-start-line="383" selection-start-column="0" selection-end-line="383" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/agent/__init__.py" />
     <entry file="file://$PROJECT_DIR$/agent/DuelingDQN.py" />
     <entry file="file://$PROJECT_DIR$/agent/DDQN.py" />
@@ -645,66 +657,6 @@
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/ApproFunc/TRPO.py" />
-    <entry file="file://$PROJECT_DIR$/DRL_Agent/NAF.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="150">
-          <caret line="10" column="15" lean-forward="false" selection-start-line="10" selection-start-column="5" selection-end-line="10" selection-end-column="15" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/DRL_Agent/DuelingDQN.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="105">
-          <caret line="16" column="0" lean-forward="true" selection-start-line="16" selection-start-column="0" selection-end-line="16" selection-end-column="0" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/DRL_Agent/DDQN.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1">
-          <caret line="9" column="29" lean-forward="true" selection-start-line="9" selection-start-column="29" selection-end-line="9" selection-end-column="29" />
-          <folding>
-            <element signature="e#0#12#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/DRL_Agent/__init__.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="90">
-          <caret line="6" column="19" lean-forward="true" selection-start-line="6" selection-start-column="19" selection-end-line="6" selection-end-column="19" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/testDDPG.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="329">
-          <caret line="61" column="15" lean-forward="true" selection-start-line="61" selection-start-column="15" selection-end-line="61" selection-end-column="15" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/DRL_Agent/DDPG.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-348">
-          <caret line="23" column="39" lean-forward="false" selection-start-line="23" selection-start-column="39" selection-end-line="23" selection-end-column="39" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/DRL_Agent/DQN.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="105">
-          <caret line="7" column="31" lean-forward="false" selection-start-line="7" selection-start-column="31" selection-end-line="7" selection-end-column="31" />
-          <folding>
-            <element signature="e#0#12#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/Appro_Func/__init__.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="30">
@@ -712,14 +664,6 @@
           <folding>
             <element signature="e#0#17#0" expanded="false" />
           </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/DRL_Agent/PPO.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="0">
-          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-          <folding />
         </state>
       </provider>
     </entry>
@@ -805,64 +749,162 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/DRL_Agent/Agent.py">
+    <entry file="file://$PROJECT_DIR$/DRL_Agent/__init__.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="90">
-          <caret line="6" column="15" lean-forward="false" selection-start-line="6" selection-start-column="15" selection-end-line="6" selection-end-column="15" />
+        <state relative-caret-position="60">
+          <caret line="4" column="22" lean-forward="true" selection-start-line="4" selection-start-column="22" selection-end-line="4" selection-end-column="22" />
           <folding />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/DRL_Agent/NPG.py">
+    <entry file="file://$USER_HOME$/Workspace/pytorch/lib/python2.7/site-packages/torch/autograd/variable.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="286">
-          <caret line="22" column="49" lean-forward="false" selection-start-line="22" selection-start-column="49" selection-end-line="22" selection-end-column="49" />
+        <state relative-caret-position="171">
+          <caret line="124" column="0" lean-forward="false" selection-start-line="124" selection-start-column="0" selection-end-line="124" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/DRL_Agent/ACER.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="0">
+          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/DRL_Agent/DDPG.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="210">
+          <caret line="23" column="39" lean-forward="false" selection-start-line="23" selection-start-column="39" selection-end-line="23" selection-end-column="39" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/DRL_Agent/NAF.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-142">
+          <caret line="12" column="17" lean-forward="true" selection-start-line="12" selection-start-column="17" selection-end-line="12" selection-end-column="17" />
           <folding>
-            <element signature="e#0#52#0" expanded="true" />
+            <element signature="e#0#12#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/DRL_Agent/DuelingDQN.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="105">
+          <caret line="16" column="0" lean-forward="true" selection-start-line="16" selection-start-column="0" selection-end-line="16" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/DRL_Agent/DQN.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-393">
+          <caret line="7" column="31" lean-forward="false" selection-start-line="7" selection-start-column="31" selection-end-line="7" selection-end-column="31" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/DRL_Agent/DDQN.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="246">
+          <caret line="19" column="35" lean-forward="false" selection-start-line="19" selection-start-column="35" selection-end-line="19" selection-end-column="35" />
+          <folding>
+            <element signature="e#0#12#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file:///System/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.7/copy.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="461">
+          <caret line="193" column="0" lean-forward="false" selection-start-line="193" selection-start-column="0" selection-end-line="193" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/DRL_Agent/Q_prop.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="0">
+          <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/DRL_Agent/Agent.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="351">
+          <caret line="51" column="41" lean-forward="false" selection-start-line="51" selection-start-column="41" selection-end-line="51" selection-end-column="41" />
+          <folding>
+            <element signature="e#29#41#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/DRL_Agent/TRPO.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="372">
-          <caret line="48" column="0" lean-forward="false" selection-start-line="48" selection-start-column="0" selection-end-line="48" selection-end-column="0" />
+        <state relative-caret-position="600">
+          <caret line="40" column="52" lean-forward="false" selection-start-line="40" selection-start-column="52" selection-end-line="40" selection-end-column="52" />
           <folding>
             <element signature="e#0#56#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$USER_HOME$/Workspace/pytorch/lib/python2.7/site-packages/torch/autograd/variable.py">
+    <entry file="file://$PROJECT_DIR$/DRL_Agent/NPG.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="198">
-          <caret line="441" column="0" lean-forward="false" selection-start-line="441" selection-start-column="0" selection-end-line="441" selection-end-column="0" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/DRL_Agent/config.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="150">
-          <caret line="40" column="26" lean-forward="false" selection-start-line="40" selection-start-column="26" selection-end-line="40" selection-end-column="26" />
-          <folding />
+        <state relative-caret-position="100">
+          <caret line="99" column="51" lean-forward="true" selection-start-line="99" selection-start-column="31" selection-end-line="99" selection-end-column="51" />
+          <folding>
+            <element signature="e#0#52#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/main.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="930">
-          <caret line="71" column="33" lean-forward="true" selection-start-line="71" selection-start-column="33" selection-end-line="71" selection-end-column="33" />
+        <state relative-caret-position="297">
+          <caret line="104" column="27" lean-forward="false" selection-start-line="104" selection-start-column="27" selection-end-line="104" selection-end-column="27" />
           <folding />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/DRL_Agent/PG.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="174">
-          <caret line="76" column="13" lean-forward="true" selection-start-line="76" selection-start-column="13" selection-end-line="76" selection-end-column="13" />
+        <state relative-caret-position="2618">
+          <caret line="198" column="0" lean-forward="false" selection-start-line="198" selection-start-column="0" selection-end-line="198" selection-end-column="0" />
           <folding>
             <element signature="e#0#12#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/testDDPG.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="851">
+          <caret line="60" column="18" lean-forward="false" selection-start-line="60" selection-start-column="18" selection-end-line="60" selection-end-column="18" />
+          <folding>
+            <element signature="e#0#10#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/DRL_Agent/config.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="300">
+          <caret line="21" column="20" lean-forward="false" selection-start-line="21" selection-start-column="20" selection-end-line="21" selection-end-column="20" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/DRL_Agent/PPO.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1440">
+          <caret line="96" column="0" lean-forward="false" selection-start-line="96" selection-start-column="0" selection-end-line="96" selection-end-column="0" />
+          <folding>
+            <element signature="e#0#42#0" expanded="true" />
           </folding>
         </state>
       </provider>

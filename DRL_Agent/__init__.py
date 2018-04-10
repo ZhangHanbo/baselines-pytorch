@@ -7,3 +7,4 @@ from .Agent import *
 from .TRPO import *
 from .PG import *
 from .NPG import *
+from .PPO import *

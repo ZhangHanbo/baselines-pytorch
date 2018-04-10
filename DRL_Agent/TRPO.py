@@ -16,10 +16,26 @@ class TRPO(NPG):
         self.max_search_num = config['max_search_num']
         self.step_frac = config['step_frac']
 
+    def compute_imp_fac_other(self, model, using_batch = False):
+        # theta is the vectorized model parameters
+        if using_batch:
+            mucur, sigmacur = model(self.s_batch)
+            # important sampling coefficients
+            # imp_fac: should be a 1-D Variable or Tensor, size is the same with a.size(0)
+            imp_fac = torch.exp(
+                self.compute_logp(mucur, sigmacur, self.a_batch) - self.compute_logp(self.mu_batch, self.sigma_batch,self.a_batch))
+        else:
+            mucur, sigmacur = model(self.s)
+            # important sampling coefficients
+            # imp_fac: should be a 1-D Variable or Tensor, size is the same with a.size(0)
+            imp_fac = torch.exp(
+                self.compute_logp(mucur, sigmacur, self.a) - self.compute_logp(self.mu, self.sigma, self.a))
+        return imp_fac
+
     def object_loss(self, theta):
         model = copy.deepcopy(self.policy)
         vector_to_parameters(theta, model.parameters())
-        imp_fac = self.compute_imp_fac(model)
+        imp_fac = self.compute_imp_fac_other(model)
         # this normalization is borrowed. I don't know why
         if self.A is not None:
             loss = - (imp_fac * self.A.squeeze()).mean()
@@ -45,7 +61,7 @@ class TRPO(NPG):
     def learn(self):
         self.sample_batch()
         # imp_fac: should be a 1-D Variable or Tensor, size is the same with a.size(0)
-        imp_fac = self.compute_imp_fac(self.policy)
+        imp_fac = self.compute_imp_fac()
         self.estimate_value()
         if self.A is not None:
             self.loss = - (imp_fac * self.A.squeeze()).mean()

@@ -19,7 +19,7 @@ DQN_CONFIG = {
 
 DDPG_CONFIG = {
     'tau' : 0.001,
-    'noise_var' : 3,
+    'noise_var' : 3.,
     'noise_min' : 0,
     'noise_decrease' : 0.0005,
     'optimizer_a': optim.Adam,
@@ -30,7 +30,7 @@ DDPG_CONFIG = {
 
 NAF_CONFIG = {
     'tau' : 0.001,
-    'noise_var' : 3,
+    'noise_var' : 3.,
     'noise_min' : 0,
     'noise_decrease' : 0.0005,
     'optimizer': optim.Adam,
@@ -52,10 +52,18 @@ NPG_CONFIG = {
     'max_kl_divergence':0.01
 }
 
+PPO_CONFIG = {
+    'steps_per_update': 10,
+    'clip_epsilon': 0.2
+}
+
+AdaptiveKLPPO_CONFIG = {
+    'init_beta':3.,
+    'steps_per_update': 10
+}
+
 TRPO_CONFIG = {
     'max_search_num' : 10,
     'accept_ratio' : .1,
     'step_frac': .5
 }
-
-

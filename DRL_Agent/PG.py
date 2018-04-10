@@ -43,13 +43,15 @@ class PG(Agent):
         self.optimizer = None
         self.A = None
         self.V = None
+        self.sample_index = None
 
     @abc.abstractmethod
-    def estimate_value(self):
+    def sample_batch(self, batchsize = None):
         raise NotImplementedError("Must be implemented in subclass.")
 
+    # compute importance sampling factor between current policy and previous trajectories
     @abc.abstractmethod
-    def compute_imp_fac(self, model):
+    def compute_imp_fac(self, using_batch = False):
         raise NotImplementedError("Must be implemented in subclass.")
 
     def estimate_value(self):
@@ -109,7 +111,7 @@ class PG(Agent):
         else:
             s = Variable(self.memory[:, :self.n_features])
             V_eval = self.value(s)
-            self.loss_v = self.loss_func_v(V_eval, V_target)
+            self.loss_v = self.loss_func_v(V_eval.squeeze(), V_target)
             self.value.zero_grad()
             self.loss_v.backward()
             self.v_optimizer.step()
@@ -117,7 +119,7 @@ class PG(Agent):
     def learn(self):
         self.sample_batch()
         self.estimate_value()
-        imp_fac = self.compute_imp_fac(self.policy)
+        imp_fac = self.compute_imp_fac()
         # update policy
         if self.value_type is not None:
             self.loss = - (imp_fac * self.A.squeeze()).mean()
@@ -143,7 +145,10 @@ class PG_Gaussian(PG):
                                    outactive=F.tanh,
                                    outscaler=self.action_bounds
                                    )
-        self.optimizer = config['optimizer'](self.policy.parameters(), lr=self.lr, momentum=self.mom)
+        if self.mom is not None:
+            self.optimizer = config['optimizer'](self.policy.parameters(), lr=self.lr, momontum = self.mom)
+        else:
+            self.optimizer = config['optimizer'](self.policy.parameters(), lr=self.lr)
 
     def choose_action(self, s):
         s = Variable(torch.Tensor(s))
@@ -163,37 +168,64 @@ class PG_Gaussian(PG):
         else:
             RuntimeError("a must be a 1-D or 2-D Tensor or Variable")
 
-    def compute_imp_fac(self,model):
+    def compute_imp_fac(self, using_batch = False):
         # theta is the vectorized model parameters
-        mucur, sigmacur = model(self.s)
-        # important sampling coefficients
-        # imp_fac: should be a 1-D Variable or Tensor, size is the same with a.size(0)
-        imp_fac = torch.exp (self.compute_logp(mucur, sigmacur, self.a) - self.compute_logp(self.mu, self.sigma, self.a))
+        if using_batch:
+            mucur, sigmacur = self.policy(self.s_batch)
+            # important sampling coefficients
+            # imp_fac: should be a 1-D Variable or Tensor, size is the same with a.size(0)
+            imp_fac = torch.exp(
+                self.compute_logp(mucur, sigmacur, self.a_batch) - self.compute_logp(self.mu_batch, self.sigma_batch, self.a_batch))
+        else:
+            mucur, sigmacur = self.policy(self.s)
+            # important sampling coefficients
+            # imp_fac: should be a 1-D Variable or Tensor, size is the same with a.size(0)
+            imp_fac = torch.exp(
+                self.compute_logp(mucur, sigmacur, self.a) - self.compute_logp(self.mu, self.sigma, self.a))
         return imp_fac
 
-    def sample_batch(self):
-        if self.memory_counter > self.memory_size:
-            self.s = Variable(self.memory[:, :self.n_features])
-            self.a = Variable(
-                self.memory[:, 2 * self.n_actions + self.n_features: 3 * self.n_actions + self.n_features])
-            self.mu = Variable(self.memory[:, self.n_features:(self.n_actions + self.n_features)])
-            self.sigma = Variable(
-                self.memory[:, self.n_actions + self.n_features: 2 * self.n_actions + self.n_features])
-            self.r = Variable(
-                self.memory[:, (self.n_features + 3 * self.n_actions):(self.n_features + 3 * self.n_actions + 1)])
-            self.done = Variable(
-                self.memory[:, (self.n_features + 3 * self.n_actions + 1):(self.n_features + 3 * self.n_actions + 2)])
+    def sample_batch(self, batch_size = None):
+        if batch_size is not None:
+            batch, self.sample_index = Agent.sample_batch(self)
+            self.s_batch = Variable(batch[:, :self.n_features])
+            self.a_batch = Variable(
+                batch[:, 2 * self.n_actions + self.n_features: 3 * self.n_actions + self.n_features])
+            self.mu_batch = Variable(batch[:, self.n_features:(self.n_actions + self.n_features)])
+            self.sigma_batch = Variable(
+                batch[:, self.n_actions + self.n_features: 2 * self.n_actions + self.n_features])
+            self.r_batch = Variable(
+                batch[:, (self.n_features + 3 * self.n_actions):(self.n_features + 3 * self.n_actions + 1)])
+            self.done_batch = Variable(
+                batch[:, (self.n_features + 3 * self.n_actions + 1):(self.n_features + 3 * self.n_actions + 2)])
         else:
-            self.s = Variable(self.memory[:self.memory_counter, :self.n_features])
-            self.a = Variable(
-                self.memory[:self.memory_counter, 2 * self.n_actions + self.n_features: 3 * self.n_actions + self.n_features])
-            self.mu = Variable(self.memory[:self.memory_counter, self.n_features:(self.n_actions + self.n_features)])
-            self.sigma = Variable(
-                self.memory[:self.memory_counter, self.n_actions + self.n_features: 2 * self.n_actions + self.n_features])
-            self.r = Variable(
-                self.memory[:self.memory_counter, (self.n_features + 3 * self.n_actions):(self.n_features + 3 * self.n_actions + 1)])
-            self.done = Variable(
-                self.memory[:self.memory_counter, (self.n_features + 3 * self.n_actions + 1):(self.n_features + 3 * self.n_actions + 2)])
+            if self.memory_counter > self.memory_size:
+                self.s = Variable(self.memory[:, :self.n_features])
+                self.a = Variable(
+                    self.memory[:, 2 * self.n_actions + self.n_features: 3 * self.n_actions + self.n_features])
+                self.mu = Variable(self.memory[:, self.n_features:(self.n_actions + self.n_features)])
+                self.sigma = Variable(
+                    self.memory[:, self.n_actions + self.n_features: 2 * self.n_actions + self.n_features])
+                self.r = Variable(
+                    self.memory[:, (self.n_features + 3 * self.n_actions):(self.n_features + 3 * self.n_actions + 1)])
+                self.done = Variable(
+                    self.memory[:,
+                    (self.n_features + 3 * self.n_actions + 1):(self.n_features + 3 * self.n_actions + 2)])
+            else:
+                self.s = Variable(self.memory[:self.memory_counter, :self.n_features])
+                self.a = Variable(
+                    self.memory[:self.memory_counter,
+                    2 * self.n_actions + self.n_features: 3 * self.n_actions + self.n_features])
+                self.mu = Variable(
+                    self.memory[:self.memory_counter, self.n_features:(self.n_actions + self.n_features)])
+                self.sigma = Variable(
+                    self.memory[:self.memory_counter,
+                    self.n_actions + self.n_features: 2 * self.n_actions + self.n_features])
+                self.r = Variable(
+                    self.memory[:self.memory_counter,
+                    (self.n_features + 3 * self.n_actions):(self.n_features + 3 * self.n_actions + 1)])
+                self.done = Variable(
+                    self.memory[:self.memory_counter,
+                    (self.n_features + 3 * self.n_actions + 1):(self.n_features + 3 * self.n_actions + 2)])
 
 class PG_Softmax(PG):
     def __init__(self,hyperparams):
@@ -220,33 +252,53 @@ class PG_Softmax(PG):
         if distri.dim() == 1:
             return torch.log(distri[a])
         elif distri.dim() == 2:
-            a_indices = [range(distri.size(0)),list(self.a.data.squeeze().long())]
+            a_indices = [range(distri.size(0)),list(a.data.squeeze().long())]
             return torch.log(distri[a_indices])
         else:
             RuntimeError("distri must be a 1-D or 2-D Tensor or Variable")
 
-    def compute_imp_fac(self,model):
-        # theta is the vectorized model parameters
-        distri = model(self.s)
-        # important sampling coefficients
-        # imp_fac: should be a 1-D Variable or Tensor, size is the same with a.size(0)
-        imp_fac = torch.exp(self.compute_logp(distri, self.a) - self.compute_logp(self.distri, self.a))
+    def compute_imp_fac(self, using_batch = False):
+        if using_batch:
+            distri = self.policy(self.s_batch)
+            # important sampling coefficients
+            # imp_fac: should be a 1-D Variable or Tensor, size is the same with a.size(0)
+            imp_fac = torch.exp(self.compute_logp(distri, self.a_batch) - self.compute_logp(self.distri_batch, self.a_batch))
+        else:
+            distri = self.policy(self.s)
+            # important sampling coefficients
+            # imp_fac: should be a 1-D Variable or Tensor, size is the same with a.size(0)
+            imp_fac = torch.exp(self.compute_logp(distri, self.a) - self.compute_logp(self.distri, self.a))
         return imp_fac
 
-    def sample_batch(self):
-        if self.memory_counter > self.memory_size:
-            self.s = Variable(self.memory[:, :self.n_features])
-            self.a = Variable(self.memory[:, self.n_actions + self.n_features: self.n_actions + self.n_features + 1])
-            self.distri = Variable(self.memory[:, self.n_features :self.n_actions + self.n_features])
-            self.r = Variable(
-                self.memory[:, (self.n_actions + self.n_features + 1):(self.n_actions + self.n_features + 2)])
-            self.done = Variable(
-                self.memory[:, (self.n_actions + self.n_features + 2):(self.n_actions + self.n_features + 3)])
+    def sample_batch(self, batch_size = None):
+        if batch_size is not None:
+            batch, self.sample_index = Agent.sample_batch(self)
+            self.s_batch = Variable(batch[:, :self.n_features])
+            self.a_batch = Variable(batch[:, self.n_actions + self.n_features: self.n_actions + self.n_features + 1])
+            self.distri_batch = Variable(batch[:, self.n_features:self.n_actions + self.n_features])
+            self.r_batch = Variable(
+                batch[:, (self.n_actions + self.n_features + 1):(self.n_actions + self.n_features + 2)])
+            self.done_batch = Variable(
+                batch[:, (self.n_actions + self.n_features + 2):(self.n_actions + self.n_features + 3)])
         else:
-            self.s = Variable(self.memory[:self.memory_counter, :self.n_features])
-            self.a = Variable(self.memory[:self.memory_counter, self.n_actions + self.n_features: self.n_actions + self.n_features + 1])
-            self.distri = Variable(self.memory[:self.memory_counter, self.n_features:self.n_actions + self.n_features])
-            self.r = Variable(
-                self.memory[:self.memory_counter, (self.n_actions + self.n_features + 1):(self.n_actions + self.n_features + 2)])
-            self.done = Variable(
-                self.memory[:self.memory_counter, (self.n_actions + self.n_features + 2):(self.n_actions + self.n_features + 3)])
+            if self.memory_counter > self.memory_size:
+                self.s = Variable(self.memory[:, :self.n_features])
+                self.a = Variable(
+                    self.memory[:, self.n_actions + self.n_features: self.n_actions + self.n_features + 1])
+                self.distri = Variable(self.memory[:, self.n_features:self.n_actions + self.n_features])
+                self.r = Variable(
+                    self.memory[:, (self.n_actions + self.n_features + 1):(self.n_actions + self.n_features + 2)])
+                self.done = Variable(
+                    self.memory[:, (self.n_actions + self.n_features + 2):(self.n_actions + self.n_features + 3)])
+            else:
+                self.s = Variable(self.memory[:self.memory_counter, :self.n_features])
+                self.a = Variable(self.memory[:self.memory_counter,
+                                  self.n_actions + self.n_features: self.n_actions + self.n_features + 1])
+                self.distri = Variable(
+                    self.memory[:self.memory_counter, self.n_features:self.n_actions + self.n_features])
+                self.r = Variable(
+                    self.memory[:self.memory_counter,
+                    (self.n_actions + self.n_features + 1):(self.n_actions + self.n_features + 2)])
+                self.done = Variable(
+                    self.memory[:self.memory_counter,
+                    (self.n_actions + self.n_features + 2):(self.n_actions + self.n_features + 3)])

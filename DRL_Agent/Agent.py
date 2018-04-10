@@ -49,7 +49,7 @@ class Agent:
         else:
             sample_index = np.random.choice(self.memory_counter, size=self.batch_size)
         batch_memory = self.memory[sample_index, :]
-        return batch_memory
+        return batch_memory, sample_index
 
     def soft_update(self, target, eval, tau):
         for target_param, param in zip(target.parameters(), eval.parameters()):
