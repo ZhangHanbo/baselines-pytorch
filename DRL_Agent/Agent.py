@@ -9,13 +9,14 @@ import Feature_Extractor
 import abc
 import copy
 from config import AGENT_CONFIG
+from utils import databuffer, databuffer_PG_gaussian
 
 class Agent:
     __metaclass__ = abc.ABCMeta
     def __init__(self,hyperparams):
         config = copy.deepcopy(AGENT_CONFIG)
         config.update(hyperparams)
-        self.n_features = config['n_features']
+        self.n_states = config['n_states']
         self.n_actions = config['n_actions']
         self.lr = config['lr']
         self.mom = config['mom']
@@ -24,8 +25,6 @@ class Agent:
         self.batch_size = config['batch_size']
         self.learn_step_counter = 0
         self.cost_his = []
-        self.memory_counter = 0
-        self.memory = torch.Tensor([])
 
     @abc.abstractmethod
     def choose_action(self, s):

@@ -39,10 +39,11 @@ def run_ppo(env, agent, max_episode, step_episode):
     RENDER = False
     for episode in range(max_episode):
         memory_count = 0
+        episode_lenth = 300
         while(memory_count < agent.memory_size):
             total_r = 0
             observation = env.reset()
-            while (True):
+            while(True):
                 if RENDER:
                     env.render()
                 action, distri = agent.choose_action(observation)
@@ -57,7 +58,7 @@ def run_ppo(env, agent, max_episode, step_episode):
                 step += 1
             print('reward: ' + str(total_r) + ' episode: ' + str(episode))
         agent.learn()
-        if total_r > 2000:
+        if total_r > -100:
             RENDER = True
     print('game over')
     env.close()
@@ -72,7 +73,7 @@ else:
 
 if __name__ == "__main__":
     # maze game
-    env = gym.make('CartPole-v0')
+    env = gym.make('Acrobot-v1')
     env = env.unwrapped
     n_features = env.observation_space.shape[0]
     if env.action_space.shape == ():
@@ -99,14 +100,14 @@ if __name__ == "__main__":
     PGconfig = {
         'n_features': n_features,
         'n_actions': n_actions,
-        'lr': 0.01,
-        'memory_size': 3000,
+        'lr': 3e-4,
+        'memory_size': 5000,
         'reward_decay': 0.995,
-        'batch_size': 1024,
+        'batch_size': 5000,
         'GAE_lambda': 0.97,
         'value_type' : 'FC',
         'optimizer': optim.Adam
     }
 
-    RL_brain = DRL_Agent.AdaptiveKLPPO_Softmax(PGconfig)
+    RL_brain = DRL_Agent.TRPO_Softmax(PGconfig)
     run_ppo(env, RL_brain, 3000, 200)

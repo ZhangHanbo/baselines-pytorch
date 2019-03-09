@@ -16,22 +16,6 @@ class TRPO(NPG):
         self.max_search_num = config['max_search_num']
         self.step_frac = config['step_frac']
 
-    def compute_imp_fac_other(self, model, using_batch = False):
-        # theta is the vectorized model parameters
-        if using_batch:
-            mucur, sigmacur = model(self.s_batch)
-            # important sampling coefficients
-            # imp_fac: should be a 1-D Variable or Tensor, size is the same with a.size(0)
-            imp_fac = torch.exp(
-                self.compute_logp(mucur, sigmacur, self.a_batch) - self.compute_logp(self.mu_batch, self.sigma_batch,self.a_batch))
-        else:
-            mucur, sigmacur = model(self.s)
-            # important sampling coefficients
-            # imp_fac: should be a 1-D Variable or Tensor, size is the same with a.size(0)
-            imp_fac = torch.exp(
-                self.compute_logp(mucur, sigmacur, self.a) - self.compute_logp(self.mu, self.sigma, self.a))
-        return imp_fac
-
     def object_loss(self, theta):
         model = copy.deepcopy(self.policy)
         vector_to_parameters(theta, model.parameters())
@@ -90,8 +74,37 @@ class TRPO_Gaussian(NPG_Gaussian, TRPO):
     def __init__(self,hyperparams):
         super(TRPO_Gaussian, self).__init__(hyperparams)
 
+    def compute_imp_fac_other(self, model):
+        # theta is the vectorized model parameters
+        if self.using_batch:
+            mucur, sigmacur = model(self.s_batch)
+            # important sampling coefficients
+            # imp_fac: should be a 1-D Variable or Tensor, size is the same with a.size(0)
+            imp_fac = torch.exp(
+                self.compute_logp(mucur, sigmacur, self.a_batch) - self.compute_logp(self.mu_batch, self.sigma_batch,self.a_batch))
+        else:
+            mucur, sigmacur = model(self.s)
+            # important sampling coefficients
+            # imp_fac: should be a 1-D Variable or Tensor, size is the same with a.size(0)
+            imp_fac = torch.exp(
+                self.compute_logp(mucur, sigmacur, self.a) - self.compute_logp(self.mu, self.sigma, self.a))
+        return imp_fac
+
 class TRPO_Softmax(NPG_Softmax, TRPO):
     def __init__(self,hyperparams):
         super(TRPO_Softmax, self).__init__(hyperparams)
+
+    def compute_imp_fac_other(self, model):
+        if self.using_batch:
+            distri = model(self.s_batch)
+            # important sampling coefficients
+            # imp_fac: should be a 1-D Variable or Tensor, size is the same with a.size(0)
+            imp_fac = torch.exp(self.compute_logp(distri, self.a_batch) - self.compute_logp(self.distri_batch, self.a_batch))
+        else:
+            distri = model(self.s)
+            # important sampling coefficients
+            # imp_fac: should be a 1-D Variable or Tensor, size is the same with a.size(0)
+            imp_fac = torch.exp(self.compute_logp(distri, self.a) - self.compute_logp(self.distri, self.a))
+        return imp_fac
 
 

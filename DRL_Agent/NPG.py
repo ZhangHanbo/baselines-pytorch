@@ -61,7 +61,7 @@ class NPG(PG):
         return fisher_vector_product + (self.cg_damping * vector)
 
     @abc.abstractmethod
-    def mean_kl_divergence(self, using_batch = False):
+    def mean_kl_divergence(self):
         raise NotImplementedError("Must be implemented in subclass.")
 
     def learn(self):
@@ -95,8 +95,8 @@ class NPG_Gaussian(NPG, PG_Gaussian):
     def __init__(self,hyperparams):
         super(NPG_Gaussian, self).__init__(hyperparams)
 
-    def mean_kl_divergence(self, using_batch = False):
-        if using_batch:
+    def mean_kl_divergence(self):
+        if self.using_batch:
             mu1, sigma1 = self.policy(self.s_batch)
             mu2, sigma2 = self.mu_batch, self.sigma_batch
             det1 = torch.cumprod(sigma1, dim=1)[:, sigma1.size(1) - 1]
@@ -119,8 +119,8 @@ class NPG_Softmax(NPG,PG_Softmax):
     def __init__(self,hyperparams):
         super(NPG_Softmax, self).__init__(hyperparams)
 
-    def mean_kl_divergence(self, using_batch = False):
-        if using_batch:
+    def mean_kl_divergence(self):
+        if self.using_batch:
             distri1 = self.policy(self.s_batch)
             distri2 = self.distri_batch
             logratio = torch.log(distri2 / distri1)

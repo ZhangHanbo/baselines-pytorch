@@ -39,10 +39,14 @@ NAF_CONFIG = {
 
 PG_CONFIG = {
     'optimizer':optim.Adam,
+    'using_batch' : False,
     'value_type' : 'FC',
     'GAE_lambda' : 0.97,            # HIGH-DIMENSIONAL CONTINUOUS CONTROL USING GENERALIZED ADVANTAGE ESTIMATION. 2016 ICLR
     'loss_func_v':MSELoss,
-    'v_optimizer':optim.LBFGS
+    'v_optimizer':optim.LBFGS,
+    'lr_v' : 0.01,
+    'entropy_weight':0.01,
+    'mom_v' : None
 }
 
 NPG_CONFIG = {
@@ -53,11 +57,14 @@ NPG_CONFIG = {
 }
 
 PPO_CONFIG = {
+    'using_batch': True,
     'steps_per_update': 10,
-    'clip_epsilon': 0.2
+    'clip_epsilon': 0.2,
+    'max_grad_norm': 40
 }
 
 AdaptiveKLPPO_CONFIG = {
+    'using_batch':True,
     'init_beta':3.,
     'steps_per_update': 10
 }

@@ -1,7 +1,7 @@
 from PG import PG, PG_Softmax, PG_Gaussian
 from NPG import NPG, NPG_Softmax, NPG_Gaussian
 import torch
-import torch.nn
+from torch import nn
 from torch.autograd import Variable
 import numpy as np
 from Agent import Agent
@@ -17,30 +17,32 @@ class PPO(NPG):
         super(PPO, self).__init__(config)
         self.steps = config['steps_per_update']
         self.epsilon = config['clip_epsilon']
+        self.max_grad_norm = config['max_grad_norm']
 
     def learn(self):
         self.sample_batch()
         self.estimate_value()
-        # update value
-        self.update_value()
         # update policy
         for istep in range(self.steps):
             self.sample_batch(self.batch_size)
             # imp_fac: should be a 1-D Variable or Tensor, size is the same with a.size(0)
-            imp_fac = self.compute_imp_fac( using_batch = True)
+            imp_fac = self.compute_imp_fac()
             # values and advantages are all 2-D Tensor. size: r.size(0) x 1
+            entropy = self.compute_entropy()
             if self.A is not None:
                 self.A_batch = Variable(self.A[self.sample_index].data)
                 self.loss1 = imp_fac * self.A_batch
-                self.loss2 = torch.clamp(imp_fac,1-self.epsilon, 1+self.epsilon) * self.A_batch + 1e-8
-                self.loss = - torch.min(self.loss1, self.loss2).mean()
+                self.loss2 = torch.clamp(imp_fac,1.0 - self.epsilon, 1.0 + self.epsilon) * self.A_batch
+                self.loss = - torch.min(self.loss1, self.loss2).mean() - self.entropy_weight * entropy
+                self.update_value()
             else:
                 self.V_batch = Variable(self.V[self.sample_index].data)
                 self.loss1 = imp_fac * self.V_batch
-                self.loss2 = torch.clamp(imp_fac, 1 - self.epsilon, 1 + self.epsilon) * self.V_batch
-                self.loss = - torch.min(self.loss1, self.loss2).mean()
+                self.loss2 = torch.clamp(imp_fac, 1.0 - self.epsilon, 1.0 + self.epsilon) * self.V_batch
+                self.loss = - torch.min(self.loss1, self.loss2).mean() - self.entropy_weight * entropy
             self.policy.zero_grad()
             self.loss.backward()
+            nn.utils.clip_grad_norm(self.policy.parameters(), self.max_grad_norm)
             self.optimizer.step()
         self.learn_step_counter += 1
 
@@ -80,9 +82,9 @@ class AdaptiveKLPPO(NPG):
         for istep in range(self.steps):
             self.sample_batch(self.batch_size)
             # imp_fac: should be a 1-D Variable or Tensor, size is the same with a.size(0)
-            imp_fac = self.compute_imp_fac( using_batch=True)
+            imp_fac = self.compute_imp_fac()
             # update policy
-            cur_kl = self.mean_kl_divergence(using_batch = True)
+            cur_kl = self.mean_kl_divergence()
             if self.A is not None:
                 self.A_batch = Variable(self.A[self.sample_index].data)
                 self.loss = - (imp_fac * self.A_batch).mean() + self.beta * cur_kl

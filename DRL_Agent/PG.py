@@ -10,6 +10,7 @@ from torch.nn.utils.convert_parameters import vector_to_parameters, parameters_t
 import copy
 from config import PG_CONFIG
 from Appro_Func.PG import FCPG_Gaussian, FCPG_Softmax, FCVALUE
+from utils import databuffer, databuffer_PG_gaussian
 import abc
 
 class PG(Agent):
@@ -19,6 +20,8 @@ class PG(Agent):
         config.update(hyperparams)
         super(PG, self).__init__(config)
         self.value_type = config['value_type']
+        self.using_batch = config['using_batch']
+        self.entropy_weight = config['entropy_weight']
         if self.value_type is not None:
             # initialize value network architecture
             if self.value_type == 'FC':
@@ -27,11 +30,16 @@ class PG(Agent):
             self.lamb = config['GAE_lambda']
             # value approximator optimizer
             self.loss_func_v = config['loss_func_v']()
+            self.lr_v = config['lr_v']
+            self.mom_v = config['mom_v']
             if config['v_optimizer'] == optim.LBFGS:
                 self.using_lbfgs_for_V = True
             else:
                 self.using_lbfgs_for_V = False
-                self.v_optimizer = config['v_optimizer'](self.value.parameters(), lr=self.lr, momentum = self.mom)
+                if self.mom is not None:
+                    self.v_optimizer = config['v_optimizer'](self.value.parameters(), lr=self.lr_v, momentum = self.mom_v)
+                else:
+                    self.v_optimizer = config['v_optimizer'](self.value.parameters(), lr=self.lr_v)
         elif self.value_type is None:
             self.value = None
         # damping initialization, all the following will be used in PG algorithm
@@ -51,7 +59,10 @@ class PG(Agent):
 
     # compute importance sampling factor between current policy and previous trajectories
     @abc.abstractmethod
-    def compute_imp_fac(self, using_batch = False):
+    def compute_imp_fac(self):
+        raise NotImplementedError("Must be implemented in subclass.")
+
+    def compute_entropy(self):
         raise NotImplementedError("Must be implemented in subclass.")
 
     def estimate_value(self):
@@ -66,15 +77,16 @@ class PG(Agent):
             advantages = Variable(torch.zeros(self.r.size(0), 1))
             prev_advantage = 0
             for i in reversed(range(self.r.size(0))):
-                returns[i] = self.r[i] + self.gamma * prev_return * masks[i]
                 delta[i] = self.r[i] + self.gamma * masks[i] * prev_value - values[i]
                 advantages[i] = delta[i] + self.gamma * self.lamb * masks[i] * prev_advantage
-                prev_return = float(returns[i, 0])
+                returns[i] = self.r[i] + self.gamma * prev_return * masks[i]
                 prev_value = float(values[i, 0])
                 prev_advantage = float(advantages[i, 0])
+                prev_return = float(returns[i, 0])
             advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
             # values and advantages are all 2-D Tensor. size: r.size(0) x 1
             self.V = returns.squeeze()
+            self.V = self.V.detach()
             self.A = advantages.squeeze()
         else:
             for i in reversed(range(self.r.size(0))):
@@ -88,14 +100,17 @@ class PG(Agent):
         value.zero_grad()
         loss_fn = self.loss_func_v
         def V_closure():
-            predicted = value(self.s)
+            if self.using_batch:
+                predicted = value(self.s_batch).squeeze()
+            else:
+                predicted = value(self.s).squeeze()
             loss = loss_fn(predicted, V_target)
             optimizer.zero_grad()
             loss.backward()
             return loss
         old_params = parameters_to_vector(value.parameters())
         for lr in self.lr * .5 ** np.arange(10):
-            optimizer = optim.LBFGS(self.value.parameters(), lr = lr)
+            optimizer = optim.LBFGS(self.value.parameters(), lr=lr)
             optimizer.step(V_closure)
             current_params = parameters_to_vector(value.parameters())
             if any(np.isnan(current_params.data.cpu().numpy())):
@@ -106,15 +121,17 @@ class PG(Agent):
 
     def update_value(self):
         V_target = self.V
+        if self.using_batch:
+            V_target = Variable(V_target.data[self.sample_index])
         if self.using_lbfgs_for_V:
             self.optim_value_lbfgs(V_target)
         else:
-            s = Variable(self.memory[:, :self.n_features])
-            V_eval = self.value(s)
+            V_eval = self.value(self.s_batch if self.using_batch else self.s)
             self.loss_v = self.loss_func_v(V_eval.squeeze(), V_target)
             self.value.zero_grad()
             self.loss_v.backward()
             self.v_optimizer.step()
+
 
     def learn(self):
         self.sample_batch()
@@ -158,19 +175,19 @@ class PG_Gaussian(PG):
 
     def compute_logp(self,mu,sigma,a):
         if a.dim() == 1:
-            return torch.sum(torch.pow((a - mu),2) / (- 2 * sigma)) - \
-                    self.n_actions / 2 * torch.log(Variable(torch.Tensor([2*3.14159]))) - \
-                    1 / 2 * torch.sum(torch.log(sigma))
+            return torch.sum(torch.pow((a - mu),2.) / (- 2. * sigma)) - \
+                    self.n_actions / 2. * torch.log(Variable(torch.Tensor([2. * 3.14159]))) - \
+                    1. / 2. * torch.sum(torch.log(sigma))
         elif a.dim() == 2:
-            return torch.sum(torch.pow((a - mu), 2) / (- 2 * sigma),1) - \
-                    self.n_actions / 2 * torch.log(Variable(torch.Tensor([2 * 3.14159]))) - \
-                    1 / 2 * torch.sum(torch.log(sigma),1)
+            return torch.sum(torch.pow((a - mu), 2.) / (- 2. * sigma),1) - \
+                    self.n_actions / 2. * torch.log(Variable(torch.Tensor([2. * 3.14159]))) - \
+                    1. / 2. * torch.sum(torch.log(sigma),1)
         else:
             RuntimeError("a must be a 1-D or 2-D Tensor or Variable")
 
-    def compute_imp_fac(self, using_batch = False):
+    def compute_imp_fac(self):
         # theta is the vectorized model parameters
-        if using_batch:
+        if self.using_batch:
             mucur, sigmacur = self.policy(self.s_batch)
             # important sampling coefficients
             # imp_fac: should be a 1-D Variable or Tensor, size is the same with a.size(0)
@@ -183,6 +200,19 @@ class PG_Gaussian(PG):
             imp_fac = torch.exp(
                 self.compute_logp(mucur, sigmacur, self.a) - self.compute_logp(self.mu, self.sigma, self.a))
         return imp_fac
+
+    def compute_entropy(self):
+        if self.using_batch:
+            mucur, sigmacur = self.policy(self.s_batch)
+            # important sampling coefficients
+            # imp_fac: should be a 1-D Variable or Tensor, size is the same with a.size(0)
+            entropy = 1./2. * (self.n_actions * 2.838 + torch.sum(torch.log(sigmacur), 1)).mean()
+        else:
+            mucur, sigmacur = self.policy(self.s)
+            # important sampling coefficients
+            # imp_fac: should be a 1-D Variable or Tensor, size is the same with a.size(0)
+            entropy = 1./2. * (self.n_actions * 2.838 + torch.sum(torch.log(sigmacur), 1)).mean()
+        return entropy
 
     def sample_batch(self, batch_size = None):
         if batch_size is not None:
@@ -233,7 +263,7 @@ class PG_Softmax(PG):
         config.update(hyperparams)
         super(PG_Softmax, self).__init__(config)
         # 3 is a, r, done, n_actions is the distribution.
-        self.memory = torch.Tensor(np.zeros((self.memory_size, self.n_features * 2 + 3 + self.n_actions)))
+        self.memory = databuffer_PG_gaussian(hyperparams)
         self.policy = FCPG_Softmax(self.n_features,  # input dim
                                    self.n_actions,  # output dim
                                    )
@@ -257,8 +287,8 @@ class PG_Softmax(PG):
         else:
             RuntimeError("distri must be a 1-D or 2-D Tensor or Variable")
 
-    def compute_imp_fac(self, using_batch = False):
-        if using_batch:
+    def compute_imp_fac(self):
+        if self.using_batch:
             distri = self.policy(self.s_batch)
             # important sampling coefficients
             # imp_fac: should be a 1-D Variable or Tensor, size is the same with a.size(0)
@@ -269,6 +299,19 @@ class PG_Softmax(PG):
             # imp_fac: should be a 1-D Variable or Tensor, size is the same with a.size(0)
             imp_fac = torch.exp(self.compute_logp(distri, self.a) - self.compute_logp(self.distri, self.a))
         return imp_fac
+
+    def compute_entropy(self):
+        if self.using_batch:
+            distri = self.policy(self.s_batch)
+            # important sampling coefficients
+            # imp_fac: should be a 1-D Variable or Tensor, size is the same with a.size(0)
+            entropy = - torch.sum(distri * torch.log(distri),1).mean()
+        else:
+            distri = self.policy(self.s)
+            # important sampling coefficients
+            # imp_fac: should be a 1-D Variable or Tensor, size is the same with a.size(0)
+            entropy = - torch.sum(distri * torch.log(distri), 1).mean()
+        return entropy
 
     def sample_batch(self, batch_size = None):
         if batch_size is not None:
