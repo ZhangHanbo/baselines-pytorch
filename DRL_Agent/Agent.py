@@ -22,7 +22,6 @@ class Agent:
         self.mom = config['mom']
         self.gamma = config['reward_decay']
         self.memory_size = config['memory_size']
-        self.batch_size = config['batch_size']
         self.learn_step_counter = 0
         self.cost_his = []
 
@@ -35,20 +34,10 @@ class Agent:
         raise NotImplementedError("Must be implemented in subclass.")
 
     def store_transition(self, transition):
-        # replace the old memory with new memory
-        transition = torch.Tensor(transition)
-        index = self.memory_counter % self.memory_size
-        self.memory[index, :] = transition
-        self.memory_counter += 1
+        self.memory.store_transition(transition)
 
-    def sample_batch(self):
-        # sample batch memory from all memory
-        if self.memory_counter > self.memory_size:
-            sample_index = np.random.choice(self.memory_size, size=self.batch_size)
-        else:
-            sample_index = np.random.choice(self.memory_counter, size=self.batch_size)
-        batch_memory = self.memory[sample_index, :]
-        return batch_memory, sample_index
+    def sample_batch(self, batch_size = None):
+        return self.memory.sample_batch(batch_size)
 
     def soft_update(self, target, eval, tau):
         for target_param, param in zip(target.parameters(), eval.parameters()):

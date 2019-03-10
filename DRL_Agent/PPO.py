@@ -18,6 +18,7 @@ class PPO(NPG):
         self.steps = config['steps_per_update']
         self.epsilon = config['clip_epsilon']
         self.max_grad_norm = config['max_grad_norm']
+        self.batch_size = config['batch_size']
 
     def learn(self):
         self.sample_batch()
@@ -64,6 +65,7 @@ class AdaptiveKLPPO(NPG):
         super(AdaptiveKLPPO, self).__init__(config)
         self.beta = config['init_beta']
         self.steps = config['steps_per_update']
+        self.batch_size = config['batch_size']
         self.cur_kl = 0
 
     def update_beta(self):

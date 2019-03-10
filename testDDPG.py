@@ -26,7 +26,15 @@ def run_game(env, agent):
                 done = True
             total_r = total_r + reward
             # store transition
-            transition = torch.Tensor(np.hstack((observation, mu,sigma ,action, reward / 10, done, observation_)))
+            transition = {
+                'state': np.expand_dims(observation, 0),
+                'action': np.expand_dims(action, 0),
+                'mu': np.expand_dims(mu, 0),
+                'sigma': np.expand_dims(sigma, 0),
+                'reward': np.expand_dims(np.array([reward]), 0),
+                'next_state': np.expand_dims(observation_, 0),
+                'done':np.expand_dims(np.array([done]), 0),
+            }
             agent.store_transition(transition)
             # swap observation
             observation = observation_
@@ -39,8 +47,7 @@ def run_game(env, agent):
         if (i_episode +1) % (agent.memory_size / episode_lenth) ==0:
             agent.learn()
 
-
-        if total_r > 0:
+        if total_r > -20:
             RENDER = True
 
 def run_game_to_end(env, agent):
@@ -92,7 +99,7 @@ if __name__ == "__main__":
         'memory_size':3000,
         'reward_decay':0.95,
         'steps_per_update':15,
-        'batch_size':256,
+        'batch_size':3000,
         'max_grad_norm': 2,
         'GAE_lambda':0.95,
         'clip_epsilon': 0.2,

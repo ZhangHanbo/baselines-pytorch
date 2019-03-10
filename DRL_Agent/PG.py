@@ -10,7 +10,7 @@ from torch.nn.utils.convert_parameters import vector_to_parameters, parameters_t
 import copy
 from config import PG_CONFIG
 from Appro_Func.PG import FCPG_Gaussian, FCPG_Softmax, FCVALUE
-from utils import databuffer, databuffer_PG_gaussian
+from utils import databuffer, databuffer_PG_gaussian, databuffer_PG_softmax
 import abc
 
 class PG(Agent):
@@ -25,7 +25,7 @@ class PG(Agent):
         if self.value_type is not None:
             # initialize value network architecture
             if self.value_type == 'FC':
-                self.value = FCVALUE(self.n_features)
+                self.value = FCVALUE(self.n_states)
             # choose estimator, including Q, A and GAE.
             self.lamb = config['GAE_lambda']
             # value approximator optimizer
@@ -154,9 +154,9 @@ class PG_Gaussian(PG):
         config = copy.deepcopy(PG_CONFIG)
         config.update(hyperparams)
         super(PG_Gaussian, self).__init__(config)
-        self.memory = torch.Tensor(np.zeros((self.memory_size, self.n_features * 2 + 2 + 3 * self.n_actions)))
+        self.memory = databuffer_PG_gaussian(hyperparams)
         self.action_bounds = config['action_bounds']
-        self.policy = FCPG_Gaussian(self.n_features,  # input dim
+        self.policy = FCPG_Gaussian(self.n_states,  # input dim
                                    self.n_actions,  # output dim
                                    sigma=2,
                                    outactive=F.tanh,
@@ -216,46 +216,21 @@ class PG_Gaussian(PG):
 
     def sample_batch(self, batch_size = None):
         if batch_size is not None:
-            batch, self.sample_index = Agent.sample_batch(self)
-            self.s_batch = Variable(batch[:, :self.n_features])
-            self.a_batch = Variable(
-                batch[:, 2 * self.n_actions + self.n_features: 3 * self.n_actions + self.n_features])
-            self.mu_batch = Variable(batch[:, self.n_features:(self.n_actions + self.n_features)])
-            self.sigma_batch = Variable(
-                batch[:, self.n_actions + self.n_features: 2 * self.n_actions + self.n_features])
-            self.r_batch = Variable(
-                batch[:, (self.n_features + 3 * self.n_actions):(self.n_features + 3 * self.n_actions + 1)])
-            self.done_batch = Variable(
-                batch[:, (self.n_features + 3 * self.n_actions + 1):(self.n_features + 3 * self.n_actions + 2)])
+            batch, self.sample_index = Agent.sample_batch(self, batch_size)
+            self.s_batch = torch.Tensor(batch['state'])
+            self.a_batch = torch.Tensor(batch['action'])
+            self.mu_batch = torch.Tensor(batch['mu'])
+            self.sigma_batch = torch.Tensor(batch['sigma'])
+            self.r_batch = torch.Tensor(batch['reward'])
+            self.done_batch = torch.Tensor(batch['done'])
         else:
-            if self.memory_counter > self.memory_size:
-                self.s = Variable(self.memory[:, :self.n_features])
-                self.a = Variable(
-                    self.memory[:, 2 * self.n_actions + self.n_features: 3 * self.n_actions + self.n_features])
-                self.mu = Variable(self.memory[:, self.n_features:(self.n_actions + self.n_features)])
-                self.sigma = Variable(
-                    self.memory[:, self.n_actions + self.n_features: 2 * self.n_actions + self.n_features])
-                self.r = Variable(
-                    self.memory[:, (self.n_features + 3 * self.n_actions):(self.n_features + 3 * self.n_actions + 1)])
-                self.done = Variable(
-                    self.memory[:,
-                    (self.n_features + 3 * self.n_actions + 1):(self.n_features + 3 * self.n_actions + 2)])
-            else:
-                self.s = Variable(self.memory[:self.memory_counter, :self.n_features])
-                self.a = Variable(
-                    self.memory[:self.memory_counter,
-                    2 * self.n_actions + self.n_features: 3 * self.n_actions + self.n_features])
-                self.mu = Variable(
-                    self.memory[:self.memory_counter, self.n_features:(self.n_actions + self.n_features)])
-                self.sigma = Variable(
-                    self.memory[:self.memory_counter,
-                    self.n_actions + self.n_features: 2 * self.n_actions + self.n_features])
-                self.r = Variable(
-                    self.memory[:self.memory_counter,
-                    (self.n_features + 3 * self.n_actions):(self.n_features + 3 * self.n_actions + 1)])
-                self.done = Variable(
-                    self.memory[:self.memory_counter,
-                    (self.n_features + 3 * self.n_actions + 1):(self.n_features + 3 * self.n_actions + 2)])
+            batch, self.sample_index = Agent.sample_batch(self, batch_size)
+            self.s = torch.Tensor(batch['state'])
+            self.a = torch.Tensor(batch['action'])
+            self.mu = torch.Tensor(batch['mu'])
+            self.sigma = torch.Tensor(batch['sigma'])
+            self.r = torch.Tensor(batch['reward'])
+            self.done = torch.Tensor(batch['done'])
 
 class PG_Softmax(PG):
     def __init__(self,hyperparams):
@@ -263,8 +238,8 @@ class PG_Softmax(PG):
         config.update(hyperparams)
         super(PG_Softmax, self).__init__(config)
         # 3 is a, r, done, n_actions is the distribution.
-        self.memory = databuffer_PG_gaussian(hyperparams)
-        self.policy = FCPG_Softmax(self.n_features,  # input dim
+        self.memory = databuffer_PG_softmax(hyperparams)
+        self.policy = FCPG_Softmax(self.n_states,  # input dim
                                    self.n_actions,  # output dim
                                    )
         if self.mom is not None:
@@ -315,33 +290,16 @@ class PG_Softmax(PG):
 
     def sample_batch(self, batch_size = None):
         if batch_size is not None:
-            batch, self.sample_index = Agent.sample_batch(self)
-            self.s_batch = Variable(batch[:, :self.n_features])
-            self.a_batch = Variable(batch[:, self.n_actions + self.n_features: self.n_actions + self.n_features + 1])
-            self.distri_batch = Variable(batch[:, self.n_features:self.n_actions + self.n_features])
-            self.r_batch = Variable(
-                batch[:, (self.n_actions + self.n_features + 1):(self.n_actions + self.n_features + 2)])
-            self.done_batch = Variable(
-                batch[:, (self.n_actions + self.n_features + 2):(self.n_actions + self.n_features + 3)])
+            batch, self.sample_index = Agent.sample_batch(self, batch_size)
+            self.s_batch = torch.Tensor(batch['state'])
+            self.a_batch = torch.Tensor(batch['action'])
+            self.distri_batch = torch.Tensor(batch['distr'])
+            self.r_batch = torch.Tensor(batch['reward'])
+            self.done_batch = torch.Tensor(batch['done'])
         else:
-            if self.memory_counter > self.memory_size:
-                self.s = Variable(self.memory[:, :self.n_features])
-                self.a = Variable(
-                    self.memory[:, self.n_actions + self.n_features: self.n_actions + self.n_features + 1])
-                self.distri = Variable(self.memory[:, self.n_features:self.n_actions + self.n_features])
-                self.r = Variable(
-                    self.memory[:, (self.n_actions + self.n_features + 1):(self.n_actions + self.n_features + 2)])
-                self.done = Variable(
-                    self.memory[:, (self.n_actions + self.n_features + 2):(self.n_actions + self.n_features + 3)])
-            else:
-                self.s = Variable(self.memory[:self.memory_counter, :self.n_features])
-                self.a = Variable(self.memory[:self.memory_counter,
-                                  self.n_actions + self.n_features: self.n_actions + self.n_features + 1])
-                self.distri = Variable(
-                    self.memory[:self.memory_counter, self.n_features:self.n_actions + self.n_features])
-                self.r = Variable(
-                    self.memory[:self.memory_counter,
-                    (self.n_actions + self.n_features + 1):(self.n_actions + self.n_features + 2)])
-                self.done = Variable(
-                    self.memory[:self.memory_counter,
-                    (self.n_actions + self.n_features + 2):(self.n_actions + self.n_features + 3)])
+            batch, self.sample_index = Agent.sample_batch(self, batch_size)
+            self.s = torch.Tensor(batch['state'])
+            self.a = torch.Tensor(batch['action'])
+            self.distri = torch.Tensor(batch['distr'])
+            self.r = torch.Tensor(batch['reward'])
+            self.done = torch.Tensor(batch['done'])
