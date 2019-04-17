@@ -4,10 +4,10 @@ from torch.autograd import Variable
 import torch.nn.functional as F
 from torch import optim
 import numpy as np
-import Feature_Extractor
-import DRL_Agent
+import actors
+import agents
 import gym
-from Evironment.maze_env import Maze
+from envs.maze_env import Maze
 
 def run(env, agent, max_episode, step_episode):
     step = 0
@@ -109,5 +109,5 @@ if __name__ == "__main__":
         'optimizer': optim.Adam
     }
 
-    RL_brain = DRL_Agent.TRPO_Softmax(PGconfig)
+    RL_brain = agents.TRPO_Softmax(PGconfig)
     run_ppo(env, RL_brain, 3000, 200)

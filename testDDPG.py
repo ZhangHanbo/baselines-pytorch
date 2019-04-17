@@ -1,7 +1,7 @@
 import gym
 import torch
 import numpy as np
-import DRL_Agent
+import agents
 from torch import optim
 
 # if true, the done of the final step in each episode will be set to True.
@@ -31,7 +31,7 @@ def run_game(env, agent):
                 'action': np.expand_dims(action, 0),
                 'mu': np.expand_dims(mu, 0),
                 'sigma': np.expand_dims(sigma, 0),
-                'reward': np.expand_dims(np.array([reward]), 0),
+                'reward': np.expand_dims(np.array([reward / 10]), 0),
                 'next_state': np.expand_dims(observation_, 0),
                 'done':np.expand_dims(np.array([done]), 0),
             }
@@ -39,11 +39,10 @@ def run_game(env, agent):
             # swap observation
             observation = observation_
             step = step + 1
-            if done:
-                #print('reward: ' + str(total_r) + ' episode: ' + str(i_episode) + ' explore: ' + str(agent.noise))
-                #print("Episode finished after {} timesteps".format(t + 1))
-                break
+
         print('episode: ' + str(i_episode) + '   reward: ' + str(total_r))
+        print("Episode finished after {} timesteps".format(t + 1))
+
         if (i_episode +1) % (agent.memory_size / episode_lenth) ==0:
             agent.learn()
 
@@ -116,8 +115,8 @@ if __name__ == "__main__":
         'action_bounds': env.action_space.high,
         'memory_size': 3000,
         'reward_decay': 0.95,
-        'GAE_lambda': 0.95,
-        'lr_v': 3e-2,
+        'GAE_lambda': 0.97,
+        'lr_v': 1e-2,
         'v_optimizer': optim.LBFGS,
         'value_type': 'FC'
     }
@@ -131,6 +130,6 @@ if __name__ == "__main__":
         'tau': 0.01
     }
 
-    RL = DRL_Agent.TRPO_Gaussian(TRPO_config)
+    RL = agents.TRPO_Gaussian(TRPO_config)
     run_game(env,RL)
 

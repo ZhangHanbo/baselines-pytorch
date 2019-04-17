@@ -4,12 +4,12 @@ from torch.autograd import Variable
 import torch.nn.functional as F
 from torch import optim
 import numpy as np
-import Feature_Extractor
-from DRL_Agent.Agent import Agent
+import actors
+from agents.Agent import Agent
 from torch.nn.utils.convert_parameters import vector_to_parameters, parameters_to_vector
 import copy
 from config import PG_CONFIG
-from Appro_Func.PG import FCPG_Gaussian, FCPG_Softmax, FCVALUE
+from critics.PG import FCPG_Gaussian, FCPG_Softmax, FCVALUE
 from utils import databuffer, databuffer_PG_gaussian, databuffer_PG_softmax
 import abc
 

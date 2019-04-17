@@ -1,11 +1,11 @@
-from DRL_Agent.PG import PG, PG_Gaussian, PG_Softmax
+from agents.PG import PG, PG_Gaussian, PG_Softmax
 import torch
 from torch import nn
 from torch.autograd import Variable
 import torch.nn.functional as F
 from torch import optim
 import numpy as np
-import Feature_Extractor
+import actors
 from torch.nn.utils.convert_parameters import vector_to_parameters, parameters_to_vector
 import copy
 from config import NPG_CONFIG

@@ -4,11 +4,11 @@ from torch.autograd import Variable
 import torch.nn.functional as F
 from torch import optim
 import numpy as np
-import Feature_Extractor
+import actors
 import copy
-from DRL_Agent.Agent import Agent
+from agents.Agent import Agent
 from config import NAF_CONFIG
-from Appro_Func.NAF import FCNAF
+from critics.NAF import FCNAF
 
 class NAF(Agent):
     def __init__(self,hyperparams):

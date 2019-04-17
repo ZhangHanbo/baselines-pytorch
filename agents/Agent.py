@@ -5,7 +5,7 @@ from torch.autograd import Variable
 import torch.nn.functional as F
 from torch import optim
 import numpy as np
-import Feature_Extractor
+import actors
 import abc
 import copy
 from config import AGENT_CONFIG

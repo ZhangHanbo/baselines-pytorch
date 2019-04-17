@@ -1,5 +1,5 @@
 import torch
-from Feature_Extractor.MLP import MLP
+from actors.MLP import MLP
 from torch.autograd import Variable
 from torch import nn
 import torch.nn.functional as F

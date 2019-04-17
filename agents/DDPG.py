@@ -4,9 +4,9 @@ from torch import optim
 from torch import nn
 import torch.nn.functional as F
 import numpy as np
-from DRL_Agent.Agent import Agent
+from agents.Agent import Agent
 from config import DDPG_CONFIG
-import Feature_Extractor
+import actors
 import copy
 
 class DDPG(Agent):
@@ -22,10 +22,10 @@ class DDPG(Agent):
         self.replace_tau = config['tau']
         # initialize zero memory [s, a, r, s_]
         self.memory = torch.Tensor(np.zeros((self.memory_size, self.n_features * 2 + 2 + self.n_actions)))
-        self.e_Actor = Feature_Extractor.MLP(self.n_features, self.n_actions, outactive=F.tanh, outscaler=self.action_bounds)
-        self.t_Actor = Feature_Extractor.MLP(self.n_features, self.n_actions, outactive=F.tanh, outscaler=self.action_bounds)
-        self.e_Critic = Feature_Extractor.MLP(self.n_features + self.n_actions, 1)
-        self.t_Critic = Feature_Extractor.MLP(self.n_features + self.n_actions, 1)
+        self.e_Actor = actors.MLP(self.n_features, self.n_actions, outactive=F.tanh, outscaler=self.action_bounds)
+        self.t_Actor = actors.MLP(self.n_features, self.n_actions, outactive=F.tanh, outscaler=self.action_bounds)
+        self.e_Critic = actors.MLP(self.n_features + self.n_actions, 1)
+        self.t_Critic = actors.MLP(self.n_features + self.n_actions, 1)
         self.loss_func = config['critic_loss']()
         self.optimizer_a = config['optimizer_a'](self.e_Actor.parameters(), lr = self.lra)
         self.optimizer_c = config['optimizer_c'](self.e_Critic.parameters(), lr = self.lr)

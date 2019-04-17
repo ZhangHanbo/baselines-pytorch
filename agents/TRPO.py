@@ -1,4 +1,4 @@
-from DRL_Agent.NPG import NPG, NPG_Gaussian, NPG_Softmax
+from agents.NPG import NPG, NPG_Gaussian, NPG_Softmax
 import torch
 from torch.nn.utils.convert_parameters import vector_to_parameters, parameters_to_vector
 import copy
@@ -38,7 +38,7 @@ class TRPO(NPG):
             actual_improve = fval - newfval
             expected_improve = expected_improve_rate * stepfrac
             ratio = actual_improve / expected_improve
-            if ratio.data[0] > accept_ratio and actual_improve.data[0] > 0:
+            if ratio.item() > accept_ratio and actual_improve.item() > 0:
                 return xnew
         return x
 
