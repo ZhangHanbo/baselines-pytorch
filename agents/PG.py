@@ -157,7 +157,7 @@ class PG_Gaussian(PG):
         self.memory = databuffer_PG_gaussian(hyperparams)
         self.action_bounds = config['action_bounds']
         self.policy = FCPG_Gaussian(self.n_states,  # input dim
-                                   self.n_actions,  # output dim
+                                   self.n_action_dims,  # output dim
                                    sigma=2,
                                    outactive=F.tanh,
                                    outscaler=self.action_bounds
@@ -176,11 +176,11 @@ class PG_Gaussian(PG):
     def compute_logp(self,mu,sigma,a):
         if a.dim() == 1:
             return torch.sum(torch.pow((a - mu),2.) / (- 2. * sigma)) - \
-                    self.n_actions / 2. * torch.log(Variable(torch.Tensor([2. * 3.14159]))) - \
+                    self.n_action_dims / 2. * torch.log(Variable(torch.Tensor([2. * 3.14159]))) - \
                     1. / 2. * torch.sum(torch.log(sigma))
         elif a.dim() == 2:
             return torch.sum(torch.pow((a - mu), 2.) / (- 2. * sigma),1) - \
-                    self.n_actions / 2. * torch.log(Variable(torch.Tensor([2. * 3.14159]))) - \
+                    self.n_action_dims / 2. * torch.log(Variable(torch.Tensor([2. * 3.14159]))) - \
                     1. / 2. * torch.sum(torch.log(sigma),1)
         else:
             RuntimeError("a must be a 1-D or 2-D Tensor or Variable")
@@ -206,12 +206,12 @@ class PG_Gaussian(PG):
             mucur, sigmacur = self.policy(self.s_batch)
             # important sampling coefficients
             # imp_fac: should be a 1-D Variable or Tensor, size is the same with a.size(0)
-            entropy = 1./2. * (self.n_actions * 2.838 + torch.sum(torch.log(sigmacur), 1)).mean()
+            entropy = 1./2. * (self.n_action_dims * 2.838 + torch.sum(torch.log(sigmacur), 1)).mean()
         else:
             mucur, sigmacur = self.policy(self.s)
             # important sampling coefficients
             # imp_fac: should be a 1-D Variable or Tensor, size is the same with a.size(0)
-            entropy = 1./2. * (self.n_actions * 2.838 + torch.sum(torch.log(sigmacur), 1)).mean()
+            entropy = 1./2. * (self.n_action_dims * 2.838 + torch.sum(torch.log(sigmacur), 1)).mean()
         return entropy
 
     def sample_batch(self, batch_size = None):

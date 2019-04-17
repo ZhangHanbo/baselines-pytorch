@@ -17,7 +17,12 @@ class Agent:
         config = copy.deepcopy(AGENT_CONFIG)
         config.update(hyperparams)
         self.n_states = config['n_states']
-        self.n_actions = config['n_actions']
+
+        # self.n_actions = 0
+        if 'n_actions' in config.keys():
+            self.n_actions = config['n_actions']
+
+        self.n_action_dims = config['n_action_dims']
         self.lr = config['lr']
         self.mom = config['mom']
         self.gamma = config['reward_decay']

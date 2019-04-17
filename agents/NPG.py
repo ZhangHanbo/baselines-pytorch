@@ -102,7 +102,7 @@ class NPG_Gaussian(NPG, PG_Gaussian):
             det1 = torch.cumprod(sigma1, dim=1)[:, sigma1.size(1) - 1]
             det2 = torch.cumprod(sigma2, dim=1)[:, sigma2.size(1) - 1]
             kl = 0.5 * (
-                    torch.log(det1) - torch.log(det2) - self.n_actions + torch.sum(sigma2 / sigma1, dim=1) + torch.sum(
+                    torch.log(det1) - torch.log(det2) - self.n_action_dims + torch.sum(sigma2 / sigma1, dim=1) + torch.sum(
                 torch.pow((mu1 - mu2), 2) / sigma1, 1))
         else:
             mu1, sigma1 = self.policy(self.s)
@@ -110,7 +110,7 @@ class NPG_Gaussian(NPG, PG_Gaussian):
             det1 = torch.cumprod(sigma1, dim=1)[:, sigma1.size(1) - 1]
             det2 = torch.cumprod(sigma2, dim=1)[:, sigma2.size(1) - 1]
             kl = 0.5 * (
-                    torch.log(det1) - torch.log(det2) - self.n_actions + torch.sum(sigma2 / sigma1, dim=1) + torch.sum(
+                    torch.log(det1) - torch.log(det2) - self.n_action_dims + torch.sum(sigma2 / sigma1, dim=1) + torch.sum(
                 torch.pow((mu1 - mu2), 2) / sigma1, 1))
         return kl.mean()
 

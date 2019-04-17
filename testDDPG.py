@@ -13,7 +13,7 @@ def run_game(env, agent):
     for i_episode in range(3000):
         observation = env.reset()
         total_r = 0
-        episode_lenth = 1000
+        episode_lenth = 200
         for t in range(episode_lenth):
             if RENDER:
                 env.render()
@@ -93,9 +93,9 @@ if __name__ == "__main__":
     # env.seed(1)
     PPO_config = {
         'n_states': env.observation_space.shape[0],
-        'n_actions': env.action_space.shape[0],
+        'n_action_dims': env.action_space.shape[0],
         'action_bounds': env.action_space.high,
-        'memory_size':3000,
+        'memory_size':600,
         'reward_decay':0.95,
         'steps_per_update':15,
         'batch_size':3000,
@@ -111,12 +111,12 @@ if __name__ == "__main__":
 
     TRPO_config = {
         'n_states': env.observation_space.shape[0],
-        'n_actions': env.action_space.shape[0],
+        'n_action_dims': env.action_space.shape[0],
         'action_bounds': env.action_space.high,
-        'memory_size': 3000,
+        'memory_size': 600,
         'reward_decay': 0.95,
-        'GAE_lambda': 0.97,
-        'lr_v': 1e-2,
+        'GAE_lambda': 1,
+        'lr_v': 3e-2,
         'v_optimizer': optim.LBFGS,
         'value_type': 'FC'
     }

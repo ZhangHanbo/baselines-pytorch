@@ -9,7 +9,7 @@ class databuffer(object):
         config.update(hyperparams)
         self.max_size = config['memory_size']
         self.state_dims = config['n_states']
-        self.actions_dims = config['n_actions']
+        self.actions_dims = config['n_action_dims']
 
         self.S = np.zeros([0, self.state_dims])
         self.A = np.zeros([0, self.actions_dims])

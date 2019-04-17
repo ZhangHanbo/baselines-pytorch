@@ -21,7 +21,14 @@ def run(env, agent, max_episode, step_episode):
             action,distri = agent.choose_action(observation)
             observation_, reward, done, info = env.step(action)
             total_r += reward
-            transition = torch.Tensor(np.hstack((observation, distri, action, reward, done, observation_)))
+            transition = {
+                'state': np.expand_dims(observation, 0),
+                'action': np.expand_dims(np.array([action]), 0),
+                'distr': np.expand_dims(distri, 0),
+                'reward': np.expand_dims(np.array([reward / 10]), 0),
+                'next_state': np.expand_dims(observation_, 0),
+                'done': np.expand_dims(np.array([done]), 0),
+            }
             agent.store_transition(transition)
             observation = observation_
             if done:
@@ -83,8 +90,9 @@ if __name__ == "__main__":
 
 
     DQNconfig = {
-        'n_features':n_features,
+        'n_states':n_features,
         'n_actions':n_actions,
+        'n_action_dims': 1,
         'lr':0.001,
         'mom':0,
         'reward_decay':0.9,
@@ -98,8 +106,9 @@ if __name__ == "__main__":
     }
 
     PGconfig = {
-        'n_features': n_features,
+        'n_states': n_features,
         'n_actions': n_actions,
+        'n_action_dims': 1,
         'lr': 3e-4,
         'memory_size': 5000,
         'reward_decay': 0.995,
@@ -110,4 +119,4 @@ if __name__ == "__main__":
     }
 
     RL_brain = agents.TRPO_Softmax(PGconfig)
-    run_ppo(env, RL_brain, 3000, 200)
+    run(env, RL_brain, 3000, 200)
