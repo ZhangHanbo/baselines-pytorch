@@ -9,24 +9,38 @@ import agents
 import gym
 from envs.maze_env import Maze
 
-def run_DQN(env, agent, max_episode, step_episode):
+DICRETE_ACTION_SPACE_LIST = ("CartPole-v1",)
+CONTINUOUS_ACTION_SPACE_LIST = ("Pendulum-v0",)
+
+def modify_reward(s, a, r, s_, env):
+    # modify the reward for training
+    if env['name'] == 'CartPole-v1':
+        x, x_dot, theta, theta_dot = s_
+        r1 = (env['env'].x_threshold - abs(x)) / env['env'].x_threshold - 0.8
+        r2 = (env['env'].theta_threshold_radians - abs(theta)) \
+             / env['env'].theta_threshold_radians - 0.5
+        return r1 + r2
+    else:
+        return r
+
+def run_DQN(env, agent, max_episode, step_episode = np.inf, isrender = False, renderth = None):
+    if env['name'] not in DICRETE_ACTION_SPACE_LIST:
+        raise RuntimeError("DQN is used for games with dicrete action space.")
     step = 0
-    RENDER = False
     for episode in range(max_episode):
         total_r = 0
-        observation = env.reset()
-        for i in range(step_episode):
-            if RENDER:
-                env.render()
+        observation = env['env'].reset()
+        t = 0
+        while(t < step_episode):
+            # visualization
+            if isrender:
+                env['env'].render()
+            # take one step
             action, distri = agent.choose_action(observation)
-            observation_, reward, done, info = env.step(action)
+            observation_, reward, done, info = env['env'].step(action)
             total_r += reward
-
-            x, x_dot, theta, theta_dot = observation_
-            r1 = (env.x_threshold - abs(x)) / env.x_threshold - 0.8
-            r2 = (env.theta_threshold_radians - abs(theta)) / env.theta_threshold_radians - 0.5
-            reward = r1 + r2
-
+            reward = modify_reward(observation, action, reward, observation_, env)
+            # store transition
             transition = {
                 'state': np.expand_dims(observation, 0),
                 'action': np.expand_dims(np.array([action]), 0),
@@ -36,105 +50,91 @@ def run_DQN(env, agent, max_episode, step_episode):
                 'done': np.expand_dims(np.array([done]), 0),
             }
             agent.store_transition(transition)
-            observation = observation_
+            # training
+            if step > agent.memory.max_size:
+                agent.learn()
+            step += 1
+            t += 1
+            # if the episode is done
             if done:
                 break
-            step += 1
-            if step > 2000:
-                agent.learn()
+            # prepare for next step
+            observation = observation_
         print('reward: ' + str(total_r) + ' episode: ' + str(episode))
-
-        # visualize training
-        # if total_r > 200:
-        #     RENDER = True
-
+        # if reward of the episode is higher than the threshold, visualize the training process
+        if renderth is not None and total_r > renderth:
+            isrender = True
     print('game over')
-    env.close()
+    env['env'].close()
 
-def run_PG(env, agent, max_episode, step_episode):
+def run_PG(env, agent, max_episode, step_episode = np.inf, isrender = False, renderth = None):
     step = 0
-    RENDER = False
-    for episode in range(max_episode):
+    for i_episode in range(max_episode):
+        observation = env['env'].reset()
         total_r = 0
-        observation = env.reset()
-        for i in range(5000):
-            if RENDER:
-                env.render()
-            action, distri = agent.choose_action(observation)
-            observation_, reward, done, info = env.step(action)
-            total_r += reward
-
-            x, x_dot, theta, theta_dot = observation_
-            r1 = (env.x_threshold - abs(x)) / env.x_threshold - 0.8
-            r2 = (env.theta_threshold_radians - abs(theta)) / env.theta_threshold_radians - 0.5
-            reward = r1 + r2
-
+        t = 0
+        while (t < step_episode):
+            if isrender:
+                env['env'].render()
+            # choose action
+            if env['name'] in CONTINUOUS_ACTION_SPACE_LIST:
+                action, mu ,sigma = agent.choose_action(observation)
+                action = np.clip(action, env['env'].action_space.low, env['env'].action_space.high)
+            elif env['name'] in DICRETE_ACTION_SPACE_LIST:
+                action, distri = agent.choose_action(observation)
+            # transition
+            observation_, reward, done, info = env['env'].step(action)
+            reward = modify_reward(observation, action, reward, observation_, env)
+            # for policy gradient methods, "done" flag for every episode is needed for training.
+            if t == step_episode - 1:
+                done = True
+            total_r = total_r + reward
+            # store transition
             transition = {
                 'state': np.expand_dims(observation, 0),
-                'action': np.expand_dims(np.array([action]), 0),
-                'distr': np.expand_dims(distri, 0),
-                'reward': np.expand_dims(np.array([reward]), 0),
+                'action': np.expand_dims([action], 0),
+                'reward': np.expand_dims(np.array([reward / 10]), 0),
                 'next_state': np.expand_dims(observation_, 0),
                 'done': np.expand_dims(np.array([done]), 0),
             }
-
+            if env['name'] in CONTINUOUS_ACTION_SPACE_LIST:
+                transition['mu'] = np.expand_dims(mu, 0)
+                transition['sigma'] = np.expand_dims(sigma, 0)
+            elif env['name'] in DICRETE_ACTION_SPACE_LIST:
+                transition['distr'] = np.expand_dims(distri, 0) if len(distri.shape) == 1 else distri
             agent.store_transition(transition)
-            observation = observation_
+            step += 1
+            t += 1
             if done:
                 break
-            step += 1
-
-        print('reward: ' + str(total_r) + ' episode: ' + str(episode))
-        if step>2000:
+            # swap observation
+            observation = observation_
+        print('episode: ' + str(i_episode) + '   reward: ' + str(total_r))
+        print("Episode finished after {} timesteps".format(t))
+        if step >= agent.memory.max_size:
             agent.learn()
-
-        # visualize training
-        # if total_r > 200:
-        #     RENDER = True
-
-    print('game over')
-    env.close()
-
-def run_ppo(env, agent, max_episode, step_episode):
-    step = 0
-    RENDER = False
-    for episode in range(max_episode):
-        memory_count = 0
-        episode_lenth = 300
-        while(memory_count < agent.memory_size):
-            total_r = 0
-            observation = env.reset()
-            while(True):
-                if RENDER:
-                    env.render()
-                action, distri = agent.choose_action(observation)
-                observation_, reward, done, info = env.step(action)
-                total_r += reward
-                transition = torch.Tensor(np.hstack((observation, distri, action, reward, done, observation_)))
-                agent.store_transition(transition)
-                memory_count += 1
-                observation = observation_
-                if done:
-                    break
-                step += 1
-            print('reward: ' + str(total_r) + ' episode: ' + str(episode))
-        agent.learn()
-        # if total_r > -100:
-        #    RENDER = True
-    print('game over')
-    env.close()
+            step = 0
+        if renderth is not None and total_r > renderth:
+            isrender = True
 
 if __name__ == "__main__":
     # maze game
-    env = gym.make('CartPole-v1')
-    env = env.unwrapped
-    n_features = env.observation_space.shape[0]
-    if env.action_space.shape == ():
-        n_actions = env.action_space.n # decrete action space, value based rl brain
+    env = {}
+    # env['name'] = "Pendulum-v0"
+    env['name'] = "CartPole-v1"
+    env['env'] = gym.make(env['name'])
+    env['env'] = env['env'].unwrapped
+    n_features = env['env'].observation_space.shape[0]
+    if env['name'] in DICRETE_ACTION_SPACE_LIST:
+        n_actions = env['env'].action_space.n # decrete action space, value based rl brain
+        n_action_dims = 1
         DICRETE_ACTION_SPACE = True
-    else:
-        n_actions = env.action_space.shape[0]
+    elif env['name'] in CONTINUOUS_ACTION_SPACE_LIST:
+        n_actions = None
+        n_action_dims = env['env'].action_space.shape[0]
         DICRETE_ACTION_SPACE = False
+    else:
+        raise RuntimeError("Game not defined as dicrete or continuous.")
 
     DQNconfig = {
         'n_states':n_features,
@@ -150,14 +150,13 @@ if __name__ == "__main__":
         'batch_size': 32,
         'e_greedy_increment':None,
         'optimizer': optim.Adam
-
     }
 
     PGconfig = {
         'n_states': n_features,
         'n_actions': n_actions,
         'n_action_dims': 1,
-        'lr': 3e-4,
+        'lr': 3e-3,
         'memory_size': 500,
         'reward_decay': 0.995,
         'batch_size': 500,
@@ -166,5 +165,48 @@ if __name__ == "__main__":
         'optimizer': optim.Adam
     }
 
-    RL_brain = agents.DuelingDQN(DQNconfig)
-    run_DQN(env, RL_brain, 10000, 500)
+    PPOconfig = {
+        'n_states': env['env'].observation_space.shape[0],
+        'n_action_dims': 1,
+        # 'action_bounds': env['env'].action_space.high,
+        'memory_size':600,
+        'reward_decay':0.95,
+        'steps_per_update':15,
+        'batch_size':3000,
+        'max_grad_norm': 2,
+        'GAE_lambda':0.95,
+        'clip_epsilon': 0.2,
+        'lr' : 3e-2,
+        'lr_v':3e-2,
+        'optimizer': optim.Adam,
+        'v_optimizer': optim.Adam,
+        'value_type': 'FC'
+    }
+
+    TRPOconfig = {
+        'n_states': env['env'].observation_space.shape[0],
+        'n_action_dims': 1,
+        'n_actions': env['env'].action_space.n,
+        # 'action_bounds': env['env'].action_space.high,
+        'memory_size': 3000,
+        'reward_decay': 0.95,
+        'GAE_lambda': 1,
+        'lr_v': 3e-2,
+        'v_optimizer': optim.LBFGS,
+        'value_type': 'FC',
+        'dicrete_action': False
+    }
+
+    DDPGconfig = {
+        'noise_var': 3,
+        'noise_min': 0.05,
+        'noise_decrease': 0.0005,
+        'lr': 0.001,
+        'lr_a': 0.001,
+        'tau': 0.01
+    }
+
+    # RL_brain = agents.TRPO_Gaussian(TRPOconfig)
+    RL_brain = agents.TRPO_Softmax(TRPOconfig)
+    run_PG(env, RL_brain, max_episode = 1000, step_episode= 1000)
+    # test git
