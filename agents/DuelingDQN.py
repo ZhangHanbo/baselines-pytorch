@@ -4,7 +4,7 @@ from torch.autograd import Variable
 import torch.nn.functional as F
 from torch import optim
 import numpy as np
-import actors
+import basenets
 from agents.DQN import DQN
 import copy
 from config import DQN_CONFIG
@@ -19,19 +19,19 @@ class DuelingDQN(DQN):
         # check to replace target parameters
         if self.learn_step_counter % self.replace_target_iter == 0:
             self.hard_update(self.t_DQN, self.e_DQN)
-        batch_memory = self.sample_batch()
+        batch_memory = self.sample_batch(self.batch_size)[0]
 
-        self.r = Variable(batch_memory[:, self.n_features + 1])
-        s_ = Variable(batch_memory[:, -self.n_features:])
+        r = torch.Tensor(batch_memory['reward'])
+        s_ = torch.Tensor(batch_memory['next_state'])
         q_target = self.t_DQN(s_)
         q_eval_wrt_s_ = self.e_DQN(s_)
         a_eval_wrt_s_ = torch.max(q_eval_wrt_s_,1)[1]
         a_indice = [range(q_target.size(0)), list(a_eval_wrt_s_.data.long())]
-        q_target = self.r + self.gamma * q_target[a_indice]
+        q_target = r + self.gamma * q_target[a_indice]
 
-        s = Variable(batch_memory[:, :self.n_features])
+        s = torch.Tensor(batch_memory['state'])
         q_eval = self.e_DQN(s)
-        a_indice = [range(q_eval.size(0)),list(batch_memory[:, self.n_features].long())]
+        a_indice = [range(q_eval.size(0)),list(batch_memory['action'].squeeze())]
         q_eval_wrt_a = q_eval[a_indice]
         q_target = q_target.detach()
 

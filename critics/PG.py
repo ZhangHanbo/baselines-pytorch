@@ -2,7 +2,7 @@ import torch
 import numpy as np
 import torch.nn.functional as F
 from torch.autograd import Variable
-from actors.MLP import MLP
+from basenets.MLP import MLP
 from torch import nn
 
 class FCPG_Gaussian(MLP):

@@ -1,11 +1,12 @@
 import torch
 from torch.autograd import Variable
 import numpy as np
-import actors
+import basenets
 from agents.Agent import Agent
 import copy
 from config import DQN_CONFIG
 from critics.DQN import FCDQN
+from utils import databuffer
 
 class DQN(Agent):
     def __init__(self, hyperparams):
@@ -17,38 +18,40 @@ class DQN(Agent):
         self.epsilon_increment = config['e_greedy_increment']
         self.epsilon = 0 if self.epsilon_increment is not None else self.epsilon_max
         # initialize zero memory [s, a, r, s_]
-        self.memory = torch.Tensor(np.zeros((self.memory_size, self.n_features * 2 + 3)))
+        self.memory = databuffer(config)
+        self.batch_size = config['batch_size']
         ## TODO: include other network architectures
-        self.e_DQN = FCDQN(self.n_features,self.n_actions)
-        self.t_DQN = FCDQN(self.n_features,self.n_actions)
+        self.e_DQN = FCDQN(self.n_states, self.n_actions, n_hiddens = [50])
+        self.t_DQN = FCDQN(self.n_states, self.n_actions, n_hiddens = [50])
         self.lossfunc = config['loss']()
         self.optimizer = config['optimizer'](self.e_DQN.parameters(),lr = self.lr, momentum = self.mom)
 
     def choose_action(self, observation):
         # to have batch dimension when feed into tf placeholder
         observation = observation[np.newaxis, :]
-        observation = Variable(torch.Tensor(observation))
+        observation = torch.Tensor(observation)
         if np.random.uniform() < self.epsilon:
             # forward feed the observation and get q value for every actions
             actions_value = self.e_DQN(observation)
             (_ , action) = torch.max(actions_value, 1)
+            distri = actions_value.detach().numpy()
             action = int(action.data[0])
         else:
+            distri = 1. / self.n_actions * np.ones(self.n_actions)
             action = np.random.randint(0, self.n_actions)
-        return action
+        return action, distri
 
     def learn(self):
         # check to replace target parameters
         if self.learn_step_counter % self.replace_target_iter == 0:
             self.hard_update(self.t_DQN, self.e_DQN)
-        batch_memory = self.sample_batch()
-        r = Variable(batch_memory[:, self.n_features + 1])
-        s_ = Variable(batch_memory[:, -self.n_features:])
-        q_target = r + self.gamma * torch.max(self.t_DQN(s_),1)[0]
-        s = Variable(batch_memory[:, :self.n_features])
+        batch_memory = self.sample_batch(self.batch_size)[0]
+        r = torch.Tensor(batch_memory['reward'])
+        s_ = torch.Tensor(batch_memory['next_state'])
+        q_target = r + self.gamma * torch.max(self.t_DQN(s_), 1)[0].view(self.batch_size, 1)
+        s = torch.Tensor(batch_memory['state'])
         q_eval = self.e_DQN(s)
-        a_indice = [range(q_eval.size(0)),list(batch_memory[:, self.n_features].long())]
-        q_eval_wrt_a = q_eval[a_indice]
+        q_eval_wrt_a = q_eval.gather(1, torch.LongTensor(batch_memory['action']))
         q_target = q_target.detach()
 
         self.loss = self.lossfunc(q_eval_wrt_a, q_target)

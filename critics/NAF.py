@@ -1,5 +1,5 @@
 import torch
-from actors.MLP import MLP
+from basenets.MLP import MLP
 from torch.autograd import Variable
 from torch import nn
 import torch.nn.functional as F

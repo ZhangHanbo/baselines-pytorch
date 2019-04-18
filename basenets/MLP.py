@@ -28,10 +28,13 @@ class MLP(nn.Module):
         self.layers = nn.ModuleList()
         for n_inunits, n_outunits in zip(inlists,outlists):
             self.layers.append(nn.Linear(n_inunits,n_outunits))
+        for layer in self.layers:
+            layer.weight.data.normal_(0, 0.1)
 
     def forward(self,x):
         for layernum, layer in enumerate(self.layers):
             x = layer(x)
+            # the last layer
             if layernum == len(self.layers) -1 :
                 if self.outactive is not None:
                     if self.outscaler is not None:

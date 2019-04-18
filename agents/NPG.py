@@ -5,7 +5,7 @@ from torch.autograd import Variable
 import torch.nn.functional as F
 from torch import optim
 import numpy as np
-import actors
+import basenets
 from torch.nn.utils.convert_parameters import vector_to_parameters, parameters_to_vector
 import copy
 from config import NPG_CONFIG

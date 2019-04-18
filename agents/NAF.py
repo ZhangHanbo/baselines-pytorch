@@ -4,7 +4,7 @@ from torch.autograd import Variable
 import torch.nn.functional as F
 from torch import optim
 import numpy as np
-import actors
+import basenets
 import copy
 from agents.Agent import Agent
 from config import NAF_CONFIG

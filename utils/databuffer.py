@@ -9,11 +9,14 @@ class databuffer(object):
         config.update(hyperparams)
         self.max_size = config['memory_size']
         self.state_dims = config['n_states']
+        if 'n_actions' in config.keys():
+            self.n_actions = config['n_actions']
         self.actions_dims = config['n_action_dims']
 
-        self.S = np.zeros([0, self.state_dims])
-        self.A = np.zeros([0, self.actions_dims])
+        self.S = np.zeros([0, self.state_dims], dtype = np.float32)
+        self.A = np.zeros([0, self.actions_dims], dtype = np.uint8 if config['dicrete_action'] else np.float32)
         self.R = np.zeros([0, 1])
+        self.S_ = np.zeros([0, self.state_dims], dtype = np.float32)
         self.done = np.zeros([0, 1])
 
         # memory counter: How many transitions are recorded in total
@@ -24,7 +27,8 @@ class databuffer(object):
         self.A = np.concatenate((self.A, transitions['action']), axis=0)
         self.R = np.concatenate((self.R, transitions['reward']), axis=0)
         self.done = np.concatenate((self.done, transitions['done']), axis=0)
-        self.mem_c += self.S.shape[0]
+        self.S_ = np.concatenate((self.S_, transitions['next_state']), axis=0)
+        self.mem_c += transitions['state'].shape[0]
         if self.mem_c >self.max_size:
             self.S = self.S[-self.max_size:]
             self.A = self.A[-self.max_size:]
@@ -33,6 +37,8 @@ class databuffer(object):
 
     def sample_batch(self, batch_size = None):
         if batch_size is not None:
+            if batch_size > self.mem_c or batch_size > self.max_size:
+                raise RuntimeError("Batch size is bigger than buffer size")
             sample_index = np.random.choice(min(self.max_size, self.mem_c), size=batch_size)
         else:
             sample_index = np.arange(min(self.max_size, self.mem_c))
@@ -41,6 +47,7 @@ class databuffer(object):
         batch['action'] = self.A[sample_index]
         batch['reward'] = self.R[sample_index]
         batch['done'] = self.done[sample_index]
+        batch['next_state'] = self.S_[sample_index]
         return batch, sample_index
 
     def reset_buffer(self):
@@ -78,7 +85,7 @@ class databuffer_PG_gaussian(databuffer):
 class databuffer_PG_softmax(databuffer):
     def __init__(self, hyperparams):
         super(databuffer_PG_softmax, self).__init__(hyperparams)
-        self.distr = np.zeros([0, self.actions_dims])
+        self.distr = np.zeros([0, self.n_actions])
 
     def store_transition(self, transitions):
         databuffer.store_transition(self, transitions)
