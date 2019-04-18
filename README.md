@@ -14,3 +14,6 @@ Policy-based RL algorithms: PG, DDPG, NPG, TRPO, PPO
 ## Baselines
 
 ## TODO list
+
+## Acknowledgement
+Thanks Morvan Zhou's codes and tutorials. Some codes of mine are debugged with his correct codes.
