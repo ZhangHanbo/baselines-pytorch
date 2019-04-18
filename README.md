@@ -17,3 +17,8 @@ Policy-based RL algorithms: PG, DDPG, NPG, TRPO, PPO
 
 ## Acknowledgement
 Thanks Morvan Zhou's codes and tutorials. Some codes of mine are debugged with his correct codes.
+
+If there are bugs you find, please do not hesitate to contact me:
+
+zhanghanbo163@stu.xjtu.edu.cn
+557451@qq.com
