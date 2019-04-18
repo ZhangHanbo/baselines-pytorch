@@ -12,6 +12,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 import gym
+from utils import databuffer
 
 # Hyper Parameters
 BATCH_SIZE = 32
@@ -48,7 +49,16 @@ class DQN(object):
 
         self.learn_step_counter = 0                                     # for target updating
         self.memory_counter = 0                                         # for storing memory
-        self.memory = np.zeros((MEMORY_CAPACITY, N_STATES * 2 + 2))     # initialize memory
+        self.memory = databuffer(
+            {
+                'n_actions' : 3,
+                'n_action_dims': 1,
+                'n_states': N_STATES,
+                'dicrete_action': True,
+                'memory_size': MEMORY_CAPACITY
+            }
+        )
+        # self.memory = np.zeros((MEMORY_CAPACITY, N_STATES * 2 + 2))     # initialize memory
         self.optimizer = torch.optim.Adam(self.eval_net.parameters(), lr=LR)
         self.loss_func = nn.MSELoss()
 
@@ -65,10 +75,19 @@ class DQN(object):
         return action
 
     def store_transition(self, s, a, r, s_):
-        transition = np.hstack((s, [a, r], s_))
+        # transition = np.hstack((s, [a, r], s_))
+        transition = {
+            'state': np.expand_dims(s, 0),
+            'action': np.expand_dims(np.array([a]), 0),
+            'distr': np.expand_dims(np.array([0.1,0.1,0.1]), 0),
+            'reward': np.expand_dims(np.array([r]), 0),
+            'next_state': np.expand_dims(s_, 0),
+            'done': np.expand_dims(np.array([done]), 0),
+        }
         # replace the old memory with new memory
-        index = self.memory_counter % MEMORY_CAPACITY
-        self.memory[index, :] = transition
+        # index = self.memory_counter % MEMORY_CAPACITY
+        # self.memory[index, :] = transition
+        self.memory.store_transition(transition)
         self.memory_counter += 1
 
     def learn(self):
@@ -78,12 +97,17 @@ class DQN(object):
         self.learn_step_counter += 1
 
         # sample batch transitions
-        sample_index = np.random.choice(MEMORY_CAPACITY, BATCH_SIZE)
-        b_memory = self.memory[sample_index, :]
-        b_s = torch.FloatTensor(b_memory[:, :N_STATES])
-        b_a = torch.LongTensor(b_memory[:, N_STATES:N_STATES+1].astype(int))
-        b_r = torch.FloatTensor(b_memory[:, N_STATES+1:N_STATES+2])
-        b_s_ = torch.FloatTensor(b_memory[:, -N_STATES:])
+        # sample_index = np.random.choice(MEMORY_CAPACITY, BATCH_SIZE)
+        # b_memory = self.memory[sample_index, :]
+        # b_s = torch.FloatTensor(b_memory[:, :N_STATES])
+        # b_a = torch.LongTensor(b_memory[:, N_STATES:N_STATES+1].astype(int))
+        # b_r = torch.FloatTensor(b_memory[:, N_STATES+1:N_STATES+2])
+        # b_s_ = torch.FloatTensor(b_memory[:, -N_STATES:])
+        b_memory = self.memory.sample_batch(BATCH_SIZE)[0]
+        b_r = torch.FloatTensor(b_memory['reward'])
+        b_s_ = torch.FloatTensor(b_memory['next_state'])
+        b_s = torch.FloatTensor(b_memory['state'])
+        b_a = torch.LongTensor(b_memory['action'])
 
         # q_eval w.r.t the action in experience
         q_eval = self.eval_net(b_s).gather(1, b_a)  # shape (batch, 1)

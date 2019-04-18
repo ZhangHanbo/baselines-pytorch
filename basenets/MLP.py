@@ -23,8 +23,8 @@ class MLP(nn.Module):
                 self.outscaler = Variable(torch.Tensor(outscaler))
         else:
             self.outscaler = None
-        inlists = np.hstack([n_inputfeats,n_hiddens])
-        outlists = np.hstack([n_hiddens,n_outputfeats])
+        inlists = [n_inputfeats,] + n_hiddens
+        outlists = n_hiddens + [n_outputfeats,]
         self.layers = nn.ModuleList()
         for n_inunits, n_outunits in zip(inlists,outlists):
             self.layers.append(nn.Linear(n_inunits,n_outunits))

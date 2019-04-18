@@ -51,5 +51,5 @@ class Agent:
 
     def hard_update(self, target, eval):
         target.load_state_dict(eval.state_dict())
-        print('\ntarget_params_replaced\n')
+        # print('\ntarget_params_replaced\n')
 

@@ -20,13 +20,13 @@ def run_DQN(env, agent, max_episode, step_episode):
                 env.render()
             action, distri = agent.choose_action(observation)
             observation_, reward, done, info = env.step(action)
+            total_r += reward
 
             x, x_dot, theta, theta_dot = observation_
             r1 = (env.x_threshold - abs(x)) / env.x_threshold - 0.8
             r2 = (env.theta_threshold_radians - abs(theta)) / env.theta_threshold_radians - 0.5
             reward = r1 + r2
 
-            total_r += reward
             transition = {
                 'state': np.expand_dims(observation, 0),
                 'action': np.expand_dims(np.array([action]), 0),
@@ -40,7 +40,7 @@ def run_DQN(env, agent, max_episode, step_episode):
             if done:
                 break
             step += 1
-            if step > 1000:
+            if step > 2000:
                 agent.learn()
         print('reward: ' + str(total_r) + ' episode: ' + str(episode))
 
@@ -141,15 +141,15 @@ if __name__ == "__main__":
         'dicrete_action': DICRETE_ACTION_SPACE,
         'n_actions':n_actions,
         'n_action_dims': 1,
-        'lr':0.001,
-        'mom':0.9,
+        'lr':0.01,
+        'mom':0,
         'reward_decay':0.9,
         'e_greedy':0.9,
         'replace_target_iter':100,
         'memory_size': 2000,
         'batch_size': 32,
         'e_greedy_increment':None,
-        'optimizer': optim.RMSprop
+        'optimizer': optim.Adam
 
     }
 
@@ -166,5 +166,5 @@ if __name__ == "__main__":
         'optimizer': optim.Adam
     }
 
-    RL_brain = agents.DQN(DQNconfig)
+    RL_brain = agents.DuelingDQN(DQNconfig)
     run_DQN(env, RL_brain, 10000, 500)

@@ -34,6 +34,7 @@ class databuffer(object):
             self.A = self.A[-self.max_size:]
             self.R = self.R[-self.max_size:]
             self.done = self.done[-self.max_size:]
+            self.S_ = self.S_[-self.max_size:]
 
     def sample_batch(self, batch_size = None):
         if batch_size is not None:

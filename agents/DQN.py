@@ -21,10 +21,14 @@ class DQN(Agent):
         self.memory = databuffer(config)
         self.batch_size = config['batch_size']
         ## TODO: include other network architectures
-        self.e_DQN = FCDQN(self.n_states, self.n_actions, n_hiddens = [50])
-        self.t_DQN = FCDQN(self.n_states, self.n_actions, n_hiddens = [50])
-        self.lossfunc = config['loss']()
-        self.optimizer = config['optimizer'](self.e_DQN.parameters(),lr = self.lr, momentum = self.mom)
+        if type(self) == DQN:
+            self.e_DQN = FCDQN(self.n_states, self.n_actions, n_hiddens = [50])
+            self.t_DQN = FCDQN(self.n_states, self.n_actions, n_hiddens = [50])
+            self.lossfunc = config['loss']()
+            if self.mom == 0 or self.mom is None:
+                self.optimizer = config['optimizer'](self.e_DQN.parameters(),lr = self.lr)
+            else:
+                self.optimizer = config['optimizer'](self.e_DQN.parameters(), lr=self.lr, momentum = self.mom)
 
     def choose_action(self, observation):
         # to have batch dimension when feed into tf placeholder
@@ -46,6 +50,7 @@ class DQN(Agent):
         if self.learn_step_counter % self.replace_target_iter == 0:
             self.hard_update(self.t_DQN, self.e_DQN)
         batch_memory = self.sample_batch(self.batch_size)[0]
+
         r = torch.Tensor(batch_memory['reward'])
         s_ = torch.Tensor(batch_memory['next_state'])
         q_target = r + self.gamma * torch.max(self.t_DQN(s_), 1)[0].view(self.batch_size, 1)
