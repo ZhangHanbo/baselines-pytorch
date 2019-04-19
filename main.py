@@ -8,7 +8,7 @@ import basenets
 import agents
 import gym
 from envs.maze_env import Maze
-import configs.DDPG_Pendulumv0
+import configs
 
 
 DICRETE_ACTION_SPACE_LIST = ("CartPole-v1",)
@@ -181,73 +181,10 @@ if __name__ == "__main__":
     else:
         raise RuntimeError("Game not defined as dicrete or continuous.")
 
-    DQNconfig = {
-        'n_states':n_features,
-        'dicrete_action': DICRETE_ACTION_SPACE,
-        'n_actions':n_actions,
-        'n_action_dims': 1,
-        'lr':0.01,
-        'mom':0,
-        'reward_decay':0.9,
-        'e_greedy':0.9,
-        'replace_target_iter':100,
-        'memory_size': 2000,
-        'batch_size': 32,
-        'e_greedy_increment':None,
-        'optimizer': optim.Adam
-    }
-
-    PGconfig = {
-        'n_states': n_features,
-        'n_actions': n_actions,
-        'n_action_dims': 1,
-        'lr': 3e-3,
-        'memory_size': 500,
-        'reward_decay': 0.995,
-        'batch_size': 500,
-        'GAE_lambda': 0.97,
-        'value_type' : 'FC',
-        'optimizer': optim.Adam
-    }
-
-    PPOconfig_dicrete = {
-        'n_states': env['env'].observation_space.shape[0],
-        'n_action_dims': 1,
-        # 'action_bounds': env['env'].action_space.high,
-        'memory_size':600,
-        'reward_decay':0.95,
-        'steps_per_update':15,
-        'batch_size':3000,
-        'max_grad_norm': 2,
-        'GAE_lambda':0.95,
-        'clip_epsilon': 0.2,
-        'lr' : 3e-2,
-        'lr_v':3e-2,
-        'optimizer': optim.Adam,
-        'v_optimizer': optim.Adam,
-        'value_type': 'FC'
-    }
-
-    PPOconfig_continuous = {
-        'n_states': env['env'].observation_space.shape[0],
-        'n_action_dims': 1,
-        # 'action_bounds': env['env'].action_space.high,
-        'memory_size': 600,
-        'reward_decay': 0.95,
-        'steps_per_update': 15,
-        'batch_size': 3000,
-        'max_grad_norm': 2,
-        'GAE_lambda': 0.95,
-        'clip_epsilon': 0.2,
-        'lr': 3e-2,
-        'lr_v': 3e-2,
-        'optimizer': optim.Adam,
-        'v_optimizer': optim.Adam,
-        'value_type': 'FC'
-    }
-
-    # RL_brain = agents.TRPO_Gaussian(TRPOconfig)
+    # RL_brain = agents.PPO_Gaussian(configs.PPO_Pendulumv0.PPOconfig)
+    # RL_brain = agents.TRPO_Gaussian(configs.TRPO_Pendulumv0.TRPOconfig)
+    # RL_brain = agents.NAF(configs.NAF_Pendulumv0.NAFconfig)
     RL_brain = agents.DDPG(configs.DDPG_Pendulumv0.DDPGconfig)
+
     # run_PG(env, RL_brain, max_episode = 1000, step_episode= 1000)
-    run_DPG(env, RL_brain, max_episode=1000, step_episode=1000)
-    # test git
+    run_DPG(env, RL_brain, max_episode=10000, step_episode=500)
