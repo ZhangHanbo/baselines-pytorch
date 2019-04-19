@@ -8,6 +8,7 @@ from agents.Agent import Agent
 from config import DDPG_CONFIG
 import basenets
 import copy
+from utils import databuffer
 
 class DDPG(Agent):
     def __init__(self,hyperparams):
@@ -16,25 +17,29 @@ class DDPG(Agent):
         super(DDPG, self).__init__(config)
         self.action_bounds = config['action_bounds']
         self.noise = config['noise_var']
+        self.batch_size = config['batch_size']
         self.exploration_noise_decrement = config['noise_decrease']
         self.noise_min = config['noise_min']
         self.lra = config['lr_a']
         self.replace_tau = config['tau']
         # initialize zero memory [s, a, r, s_]
-        self.memory = torch.Tensor(np.zeros((self.memory_size, self.n_features * 2 + 2 + self.n_actions)))
-        self.e_Actor = basenets.MLP(self.n_features, self.n_actions, outactive=F.tanh, outscaler=self.action_bounds)
-        self.t_Actor = basenets.MLP(self.n_features, self.n_actions, outactive=F.tanh, outscaler=self.action_bounds)
-        self.e_Critic = basenets.MLP(self.n_features + self.n_actions, 1)
-        self.t_Critic = basenets.MLP(self.n_features + self.n_actions, 1)
+        config['memory_size'] = self.memory_size
+        self.memory = databuffer(config)
+        self.e_Actor = basenets.MLP(self.n_states, self.n_action_dims, outactive=F.tanh, outscaler=self.action_bounds)
+        self.t_Actor = basenets.MLP(self.n_states, self.n_action_dims, outactive=F.tanh, outscaler=self.action_bounds)
+        self.hard_update(self.t_Actor, self.e_Actor)
+        self.e_Critic = basenets.MLP(self.n_states + self.n_action_dims, 1)
+        self.t_Critic = basenets.MLP(self.n_states + self.n_action_dims, 1)
+        self.hard_update(self.t_Critic, self.e_Critic)
         self.loss_func = config['critic_loss']()
         self.optimizer_a = config['optimizer_a'](self.e_Actor.parameters(), lr = self.lra)
         self.optimizer_c = config['optimizer_c'](self.e_Critic.parameters(), lr = self.lr)
 
     def choose_action(self,s):
-        s = Variable(torch.Tensor(s))
-        anoise = torch.normal(torch.zeros(self.n_actions),self.noise * torch.ones(self.n_actions))
-        preda = self.e_Actor(s).data
-        return np.array(preda + anoise)
+        s = torch.Tensor(s)
+        anoise = torch.normal(torch.zeros(self.n_action_dims), self.noise * torch.ones(self.n_action_dims))
+        preda = self.e_Actor(s)
+        return np.array((preda + anoise).detach()).squeeze()
 
     def learn(self):
         # check to replace target parameters
@@ -42,20 +47,18 @@ class DDPG(Agent):
         self.soft_update(self.t_Critic, self.e_Critic, self.replace_tau)
 
         # sample batch memory from all memory
-        batch_memory = self.sample_batch()
+        batch_memory = self.sample_batch(self.batch_size)[0]
+        r = torch.Tensor(batch_memory['reward'])
+        done = torch.Tensor(batch_memory['done'])
+        s_ = torch.Tensor(batch_memory['next_state'])
+        a = torch.Tensor(batch_memory['action'])
+        s = torch.Tensor(batch_memory['state'])
 
-        # update critic
-        r = Variable(batch_memory[:, (self.n_features + self.n_actions):(self.n_features + self.n_actions+ 1)])
-
-        done = Variable(batch_memory[:, (self.n_features + self.n_actions +1):(self.n_features + self.n_actions+ 2)])
-        s_ = Variable(batch_memory[:, -self.n_features:])
-        q_target = r + self.gamma * self.t_Critic(torch.cat([s_, self.t_Actor(s_)],1))
+        q_target = r + self.gamma * self.t_Critic(torch.cat([s_, self.t_Actor(s_)], 1))
         q_target = q_target.detach()
-
-        a = Variable(batch_memory[:, self.n_features:(self.n_actions +self.n_features)])
-        s = Variable(batch_memory[:, :self.n_features])
         q_eval = self.e_Critic(torch.cat([s, a],1))
 
+        # update critic
         self.e_Critic.zero_grad()
         self.loss_c = self.loss_func(q_eval, q_target)
         self.loss_c.backward()

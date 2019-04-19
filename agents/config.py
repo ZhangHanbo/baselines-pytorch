@@ -5,7 +5,6 @@ AGENT_CONFIG = {
     'lr':0.01,
     'mom':None,
     'reward_decay':0.9,
-    'batch_size':32,
     'memory_size': 10000,
 }
 
@@ -14,7 +13,8 @@ DQN_CONFIG = {
     'e_greedy':0.9,
     'e_greedy_increment':None,
     'optimizer': optim.RMSprop,
-    'loss' : MSELoss
+    'loss' : MSELoss,
+    'batch_size': 32
 }
 
 DDPG_CONFIG = {
@@ -25,7 +25,8 @@ DDPG_CONFIG = {
     'optimizer_a': optim.Adam,
     'optimizer_c': optim.Adam,
     'lr_a' : 1e-3,
-    'critic_loss': MSELoss
+    'critic_loss': MSELoss,
+    'batch_size': 32
 }
 
 NAF_CONFIG = {
@@ -34,7 +35,8 @@ NAF_CONFIG = {
     'noise_min' : 0,
     'noise_decrease' : 0.0005,
     'optimizer': optim.Adam,
-    'loss': MSELoss
+    'loss': MSELoss,
+    'batch_size': 32
 }
 
 PG_CONFIG = {

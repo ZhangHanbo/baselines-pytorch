@@ -154,6 +154,7 @@ class PG_Gaussian(PG):
         config = copy.deepcopy(PG_CONFIG)
         config.update(hyperparams)
         super(PG_Gaussian, self).__init__(config)
+        config['memory_size'] = self.memory_size
         self.memory = databuffer_PG_gaussian(hyperparams)
         self.action_bounds = config['action_bounds']
         self.policy = FCPG_Gaussian(self.n_states,  # input dim
@@ -238,6 +239,7 @@ class PG_Softmax(PG):
         config.update(hyperparams)
         super(PG_Softmax, self).__init__(config)
         # 3 is a, r, done, n_actions is the distribution.
+        config['memory_size'] = self.memory_size
         self.memory = databuffer_PG_softmax(hyperparams)
         self.policy = FCPG_Softmax(self.n_states,  # input dim
                                    self.n_actions,  # output dim

@@ -8,6 +8,8 @@ import basenets
 import agents
 import gym
 from envs.maze_env import Maze
+import configs.DDPG_Pendulumv0
+
 
 DICRETE_ACTION_SPACE_LIST = ("CartPole-v1",)
 CONTINUOUS_ACTION_SPACE_LIST = ("Pendulum-v0",)
@@ -43,11 +45,11 @@ def run_DQN(env, agent, max_episode, step_episode = np.inf, isrender = False, re
             # store transition
             transition = {
                 'state': np.expand_dims(observation, 0),
-                'action': np.expand_dims(np.array([action]), 0),
+                'action': np.expand_dims([action] if len(np.shape(action)) == 0 else action, 0),
                 'distr': np.expand_dims(distri, 0) if len(distri.shape) == 1 else distri,
-                'reward': np.expand_dims(np.array([reward]), 0),
+                'reward': np.expand_dims([reward], 0),
                 'next_state': np.expand_dims(observation_, 0),
-                'done': np.expand_dims(np.array([done]), 0),
+                'done': np.expand_dims([done], 0),
             }
             agent.store_transition(transition)
             # training
@@ -92,10 +94,10 @@ def run_PG(env, agent, max_episode, step_episode = np.inf, isrender = False, ren
             # store transition
             transition = {
                 'state': np.expand_dims(observation, 0),
-                'action': np.expand_dims([action], 0),
-                'reward': np.expand_dims(np.array([reward / 10]), 0),
+                'action': np.expand_dims([action] if len(np.shape(action)) == 0 else action, 0),
+                'reward': np.expand_dims([reward / 10], 0),
                 'next_state': np.expand_dims(observation_, 0),
-                'done': np.expand_dims(np.array([done]), 0),
+                'done': np.expand_dims([done], 0),
             }
             if env['name'] in CONTINUOUS_ACTION_SPACE_LIST:
                 transition['mu'] = np.expand_dims(mu, 0)
@@ -117,11 +119,54 @@ def run_PG(env, agent, max_episode, step_episode = np.inf, isrender = False, ren
         if renderth is not None and total_r > renderth:
             isrender = True
 
+def run_DPG(env, agent, max_episode, step_episode = np.inf, isrender = False, renderth = None):
+    if env['name'] not in CONTINUOUS_ACTION_SPACE_LIST:
+        raise RuntimeError("DPG is used for games with continuous action space.")
+    step = 0
+    for i_episode in range(max_episode):
+        observation = env['env'].reset()
+        total_r = 0
+        t = 0
+        while (t < step_episode):
+            if isrender:
+                env['env'].render()
+            # choose action
+            action = agent.choose_action(observation)
+            action = np.clip(action, env['env'].action_space.low, env['env'].action_space.high)
+            # transition
+            observation_, reward, done, info = env['env'].step(action)
+            reward = modify_reward(observation, action, reward, observation_, env)
+            # for policy gradient methods, "done" flag for every episode is needed for training.
+            if t == step_episode - 1:
+                done = True
+            total_r = total_r + reward
+            # store transition
+            transition = {
+                'state': np.expand_dims(observation, 0),
+                'action': np.expand_dims([action] if len(np.shape(action)) == 0 else action, 0),
+                'reward': np.expand_dims([reward / 10], 0),
+                'next_state': np.expand_dims(observation_, 0),
+                'done': np.expand_dims([done], 0),
+            }
+            agent.store_transition(transition)
+            step += 1
+            t += 1
+            if done:
+                break
+            # swap observation
+            observation = observation_
+        print('episode: ' + str(i_episode) + '   reward: ' + str(total_r))
+        print("Episode finished after {} timesteps".format(t))
+        if step >= agent.memory.max_size:
+            agent.learn()
+        if renderth is not None and total_r > renderth:
+            isrender = True
+
 if __name__ == "__main__":
     # maze game
     env = {}
-    # env['name'] = "Pendulum-v0"
-    env['name'] = "CartPole-v1"
+    env['name'] = "Pendulum-v0"
+    # env['name'] = "CartPole-v1"
     env['env'] = gym.make(env['name'])
     env['env'] = env['env'].unwrapped
     n_features = env['env'].observation_space.shape[0]
@@ -165,7 +210,7 @@ if __name__ == "__main__":
         'optimizer': optim.Adam
     }
 
-    PPOconfig = {
+    PPOconfig_dicrete = {
         'n_states': env['env'].observation_space.shape[0],
         'n_action_dims': 1,
         # 'action_bounds': env['env'].action_space.high,
@@ -183,30 +228,26 @@ if __name__ == "__main__":
         'value_type': 'FC'
     }
 
-    TRPOconfig = {
+    PPOconfig_continuous = {
         'n_states': env['env'].observation_space.shape[0],
         'n_action_dims': 1,
-        'n_actions': env['env'].action_space.n,
         # 'action_bounds': env['env'].action_space.high,
-        'memory_size': 3000,
+        'memory_size': 600,
         'reward_decay': 0.95,
-        'GAE_lambda': 1,
+        'steps_per_update': 15,
+        'batch_size': 3000,
+        'max_grad_norm': 2,
+        'GAE_lambda': 0.95,
+        'clip_epsilon': 0.2,
+        'lr': 3e-2,
         'lr_v': 3e-2,
-        'v_optimizer': optim.LBFGS,
-        'value_type': 'FC',
-        'dicrete_action': False
-    }
-
-    DDPGconfig = {
-        'noise_var': 3,
-        'noise_min': 0.05,
-        'noise_decrease': 0.0005,
-        'lr': 0.001,
-        'lr_a': 0.001,
-        'tau': 0.01
+        'optimizer': optim.Adam,
+        'v_optimizer': optim.Adam,
+        'value_type': 'FC'
     }
 
     # RL_brain = agents.TRPO_Gaussian(TRPOconfig)
-    RL_brain = agents.TRPO_Softmax(TRPOconfig)
-    run_PG(env, RL_brain, max_episode = 1000, step_episode= 1000)
+    RL_brain = agents.DDPG(configs.DDPG_Pendulumv0.DDPGconfig)
+    # run_PG(env, RL_brain, max_episode = 1000, step_episode= 1000)
+    run_DPG(env, RL_brain, max_episode=1000, step_episode=1000)
     # test git

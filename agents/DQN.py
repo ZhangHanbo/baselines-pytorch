@@ -1,5 +1,4 @@
 import torch
-from torch.autograd import Variable
 import numpy as np
 import basenets
 from agents.Agent import Agent
@@ -18,6 +17,7 @@ class DQN(Agent):
         self.epsilon_increment = config['e_greedy_increment']
         self.epsilon = 0 if self.epsilon_increment is not None else self.epsilon_max
         # initialize zero memory [s, a, r, s_]
+        config['memory_size'] = self.memory_size
         self.memory = databuffer(config)
         self.batch_size = config['batch_size']
         ## TODO: include other network architectures
