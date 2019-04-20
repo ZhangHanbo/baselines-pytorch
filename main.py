@@ -149,6 +149,8 @@ def run_DPG(env, agent, max_episode, step_episode = np.inf, isrender = False, re
                 'done': np.expand_dims([done], 0),
             }
             agent.store_transition(transition)
+            if step >= agent.memory.max_size:
+                agent.learn()
             step += 1
             t += 1
             if done:
@@ -157,8 +159,7 @@ def run_DPG(env, agent, max_episode, step_episode = np.inf, isrender = False, re
             observation = observation_
         print('episode: ' + str(i_episode) + '   reward: ' + str(total_r))
         print("Episode finished after {} timesteps".format(t))
-        if step >= agent.memory.max_size:
-            agent.learn()
+
         if renderth is not None and total_r > renderth:
             isrender = True
 
@@ -181,10 +182,13 @@ if __name__ == "__main__":
     else:
         raise RuntimeError("Game not defined as dicrete or continuous.")
 
+    # RL_brain = agents.DuelingDQN(configs.DQN_CartPolev1.DQNconfig)
+    # run_DQN(env, RL_brain, max_episode=10000, renderth = 500)
+
     # RL_brain = agents.PPO_Gaussian(configs.PPO_Pendulumv0.PPOconfig)
     # RL_brain = agents.TRPO_Gaussian(configs.TRPO_Pendulumv0.TRPOconfig)
+    # run_PG(env, RL_brain, max_episode = 1000, step_episode = 200)
+
     # RL_brain = agents.NAF(configs.NAF_Pendulumv0.NAFconfig)
     RL_brain = agents.DDPG(configs.DDPG_Pendulumv0.DDPGconfig)
-
-    # run_PG(env, RL_brain, max_episode = 1000, step_episode= 1000)
-    run_DPG(env, RL_brain, max_episode=10000, step_episode=500)
+    run_DPG(env, RL_brain, max_episode = 1000, step_episode = 200)

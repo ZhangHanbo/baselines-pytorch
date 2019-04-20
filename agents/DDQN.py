@@ -6,7 +6,7 @@ from torch import optim
 import numpy as np
 import basenets
 from agents.DQN import DQN
-from critics import FCDQN
+from rlnets import FCDQN
 import copy
 from config import DQN_CONFIG
 

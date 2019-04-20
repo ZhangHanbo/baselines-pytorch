@@ -12,6 +12,7 @@ class FCPG_Gaussian(MLP):
                  sigma,
                  n_hiddens = [30],  # hidden unit number list
                  nonlinear = F.relu,
+                 usebn = False,
                  outactive = None,
                  outscaler = None
                  ):
@@ -21,6 +22,7 @@ class FCPG_Gaussian(MLP):
                  n_actions,   # output dim
                  n_hiddens,  # hidden unit number list
                  nonlinear,
+                 usebn,
                  outactive,
                  outscaler
                  )
@@ -36,6 +38,7 @@ class FCPG_Softmax(MLP):
                  n_actions,   # output dim
                  n_hiddens = [10],  # hidden unit number list
                  nonlinear = F.relu,
+                 usebn = False,
                  outactive = F.softmax,
                  outscaler = None
                  ):
@@ -45,6 +48,7 @@ class FCPG_Softmax(MLP):
                  n_actions,   # output dim
                  n_hiddens,  # hidden unit number list
                  nonlinear,
+                 usebn,
                  outactive,
                  outscaler
                  )
@@ -58,6 +62,7 @@ class FCVALUE(MLP):
                  n_inputfeats,
                  n_hiddens = [30],  # hidden unit number list
                  nonlinear = F.relu,
+                 usebn = False,
                  outactive = None,
                  outscaler = None
                  ):
@@ -66,6 +71,7 @@ class FCVALUE(MLP):
                  1,   # output dim
                  n_hiddens,  # hidden unit number list
                  nonlinear,
+                 usebn,
                  outactive,
                  outscaler
                  )

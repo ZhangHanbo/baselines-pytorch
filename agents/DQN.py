@@ -4,7 +4,7 @@ import basenets
 from agents.Agent import Agent
 import copy
 from config import DQN_CONFIG
-from critics.DQN import FCDQN
+from rlnets.DQN import FCDQN
 from utils import databuffer
 
 class DQN(Agent):
@@ -22,8 +22,8 @@ class DQN(Agent):
         self.batch_size = config['batch_size']
         ## TODO: include other network architectures
         if type(self) == DQN:
-            self.e_DQN = FCDQN(self.n_states, self.n_actions, n_hiddens = [50])
-            self.t_DQN = FCDQN(self.n_states, self.n_actions, n_hiddens = [50])
+            self.e_DQN = FCDQN(self.n_states, self.n_actions, n_hiddens = [50], usebn=True)
+            self.t_DQN = FCDQN(self.n_states, self.n_actions, n_hiddens = [50], usebn=True)
             self.lossfunc = config['loss']()
             if self.mom == 0 or self.mom is None:
                 self.optimizer = config['optimizer'](self.e_DQN.parameters(),lr = self.lr)
@@ -36,7 +36,9 @@ class DQN(Agent):
         observation = torch.Tensor(observation)
         if np.random.uniform() < self.epsilon:
             # forward feed the observation and get q value for every actions
+            self.e_DQN.eval()
             actions_value = self.e_DQN(observation)
+            self.e_DQN.train()
             (_ , action) = torch.max(actions_value, 1)
             distri = actions_value.detach().numpy()
             action = int(action.data[0])

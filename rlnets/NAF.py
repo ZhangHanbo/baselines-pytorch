@@ -10,13 +10,14 @@ class FCNAF(MLP):
                  n_actions,   # action dim
                  n_hiddens = [30],  # hidden unit number list
                  nonlinear = F.relu,
+                 usebn = False,
                  action_active = None,
                  action_scaler = None
                  ):
         self.n_actions = n_actions
         n_outputfeats = 1 + self.n_actions + self.n_actions ** 2
         super(FCNAF, self).__init__(n_inputfeats, n_outputfeats, n_hiddens,
-                                    nonlinear)
+                                    nonlinear, usebn)
         # these two lines cant be moved.
         self.action_active = action_active
         self.action_scaler = action_scaler

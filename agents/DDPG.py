@@ -42,9 +42,11 @@ class DDPG(Agent):
         self.optimizer_c = config['optimizer_c'](self.e_Critic.parameters(), lr = self.lr)
 
     def choose_action(self,s):
+        self.e_Actor.eval()
         s = torch.Tensor(s)
         anoise = torch.normal(torch.zeros(self.n_action_dims), self.noise * torch.ones(self.n_action_dims))
         preda = self.e_Actor(s)
+        self.e_Actor.train()
         return np.array((preda + anoise).detach()).squeeze()
 
     def learn(self):

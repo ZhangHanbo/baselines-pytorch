@@ -8,7 +8,7 @@ import basenets
 import copy
 from agents.Agent import Agent
 from config import NAF_CONFIG
-from critics.NAF import FCNAF
+from rlnets.NAF import FCNAF
 from utils import databuffer
 
 class NAF(Agent):
@@ -24,15 +24,25 @@ class NAF(Agent):
         self.replace_tau = config['tau']
         # initialize zero memory [s, a, r, s_]
         self.memory = databuffer(config)
-        self.e_NAF = FCNAF(self.n_states, self.n_action_dims, action_active=F.tanh, action_scaler=self.action_bounds)
-        self.t_NAF = FCNAF(self.n_states, self.n_action_dims, action_active=F.tanh, action_scaler=self.action_bounds)
+        self.e_NAF = FCNAF(self.n_states, self.n_action_dims,
+                           n_hiddens=[100] ,
+                           action_active=F.tanh,
+                           action_scaler=self.action_bounds)
+        self.t_NAF = FCNAF(self.n_states, self.n_action_dims,
+                           n_hiddens=[100] ,
+                           action_active=F.tanh,
+                           action_scaler=self.action_bounds)
+        self.hard_update(self.t_NAF, self.e_NAF)
         self.loss_func = config['loss']()
         self.optimizer = config['optimizer'](self.e_NAF.parameters(), lr=self.lr)
 
     def choose_action(self,s):
+        self.e_NAF.eval()
         s = torch.Tensor(s)
-        anoise = torch.normal(torch.zeros(self.n_action_dims),self.noise * torch.ones(self.n_action_dims))
+        anoise = torch.normal(torch.zeros(self.n_action_dims),
+                              self.noise * torch.ones(self.n_action_dims))
         _, preda,_ = self.e_NAF(s)
+        self.e_NAF.train()
         return np.array(preda.data + anoise)
 
     def learn(self):
@@ -64,5 +74,5 @@ class NAF(Agent):
         self.optimizer.step()
 
         self.learn_step_counter += 1
-        self.noise = self.noise * (
-                1 - self.exploration_noise_decrement) if self.noise > self.noise_min else self.noise_min
+        self.noise = self.noise * (1 - self.exploration_noise_decrement) \
+                     if self.noise > self.noise_min else self.noise_min

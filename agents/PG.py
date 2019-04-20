@@ -9,7 +9,7 @@ from agents.Agent import Agent
 from torch.nn.utils.convert_parameters import vector_to_parameters, parameters_to_vector
 import copy
 from config import PG_CONFIG
-from critics.PG import FCPG_Gaussian, FCPG_Softmax, FCVALUE
+from rlnets.PG import FCPG_Gaussian, FCPG_Softmax, FCVALUE
 from utils import databuffer, databuffer_PG_gaussian, databuffer_PG_softmax
 import abc
 
@@ -132,7 +132,6 @@ class PG(Agent):
             self.loss_v.backward()
             self.v_optimizer.step()
 
-
     def learn(self):
         self.sample_batch()
         self.estimate_value()
@@ -169,8 +168,10 @@ class PG_Gaussian(PG):
             self.optimizer = config['optimizer'](self.policy.parameters(), lr=self.lr)
 
     def choose_action(self, s):
+        self.policy.eval()
         s = Variable(torch.Tensor(s))
         mu,sigma = self.policy(s)
+        self.policy.train()
         a = torch.normal(mu,sigma)
         return np.array(a.data), np.array(mu.data), np.array(sigma.data)
 
@@ -250,8 +251,10 @@ class PG_Softmax(PG):
             self.optimizer = config['optimizer'](self.policy.parameters(), lr=self.lr)
 
     def choose_action(self, s):
+        self.policy.eval()
         s = Variable(torch.Tensor(s))
         distri = self.policy(s)
+        self.policy.train()
         a = np.random.choice(distri.data.shape[0], p = np.array(distri.data))
         return a, np.array(distri.data)
 

@@ -9,7 +9,7 @@ from agents.DQN import DQN
 from agents.DDQN import DDQN
 import copy
 from config import DQN_CONFIG
-from critics import FCDuelingDQN
+from rlnets import FCDuelingDQN
 
 class DuelingDQN(DDQN):
     def __init__(self,hyperparams):

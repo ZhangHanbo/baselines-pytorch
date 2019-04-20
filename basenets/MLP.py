@@ -10,6 +10,7 @@ class MLP(nn.Module):
                  n_outputfeats,   # output dim
                  n_hiddens = [30],  # hidden unit number list
                  nonlinear = F.relu,
+                 usebn = False,
                  outactive = None,
                  outscaler = None
                  ):
@@ -27,11 +28,19 @@ class MLP(nn.Module):
         outlists = n_hiddens + [n_outputfeats,]
         self.layers = nn.ModuleList()
         for n_inunits, n_outunits in zip(inlists,outlists):
-            self.layers.append(nn.Linear(n_inunits,n_outunits))
-        for layer in self.layers:
-            layer.weight.data.normal_(0, 0.1)
+            if usebn:
+                bn_layer = nn.BatchNorm1d(n_inunits)
+                bn_layer.weight.data.fill_(1)
+                bn_layer.bias.data.fill_(0)
+                self.layers.append(bn_layer)
+            linear_layer = nn.Linear(n_inunits,n_outunits)
+            linear_layer.weight.data.normal_(0, 0.1)
+            self.layers.append(linear_layer)
 
     def forward(self,x):
+        input_dim = x.dim()
+        if input_dim == 1:
+            x = x.unsqueeze(0)
         for layernum, layer in enumerate(self.layers):
             x = layer(x)
             # the last layer
@@ -43,4 +52,6 @@ class MLP(nn.Module):
                         x = self.outactive(x)
             else:
                 x = self.nonlinear(x)
+        if input_dim == 1:
+            x = x.squeeze(0)
         return x
