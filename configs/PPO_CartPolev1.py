@@ -13,6 +13,8 @@ PPOconfig = {
         'clip_epsilon': 0.2,
         'lr' : 3e-2,
         'lr_v':3e-2,
+        'hidden_layers' : [50],
+        'use_batch_norm' : False,
         'optimizer': optim.Adam,
         'v_optimizer': optim.Adam,
         'value_type': 'FC'

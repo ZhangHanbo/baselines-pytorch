@@ -22,8 +22,12 @@ class DQN(Agent):
         self.batch_size = config['batch_size']
         ## TODO: include other network architectures
         if type(self) == DQN:
-            self.e_DQN = FCDQN(self.n_states, self.n_actions, n_hiddens = [50], usebn=True)
-            self.t_DQN = FCDQN(self.n_states, self.n_actions, n_hiddens = [50], usebn=True)
+            self.e_DQN = FCDQN(self.n_states, self.n_actions,
+                               n_hiddens=config['hidden_layers'],
+                               usebn=config['use_batch_norm'])
+            self.t_DQN = FCDQN(self.n_states, self.n_actions,
+                               n_hiddens=config['hidden_layers'],
+                               usebn=config['use_batch_norm'])
             self.lossfunc = config['loss']()
             if self.mom == 0 or self.mom is None:
                 self.optimizer = config['optimizer'](self.e_DQN.parameters(),lr = self.lr)

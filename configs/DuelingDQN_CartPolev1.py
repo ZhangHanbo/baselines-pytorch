@@ -1,6 +1,6 @@
 from torch import optim
 
-DQNconfig = {
+DuelingDQNconfig = {
         'n_states':4,
         'dicrete_action': True,
         'n_actions':2,

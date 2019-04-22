@@ -1,14 +1,21 @@
+import argparse
+
 import torch
 from torch import nn
-from torch.autograd import Variable
 import torch.nn.functional as F
 from torch import optim
 import numpy as np
+
+import gym
+from gym import wrappers
+from envs.maze_env import Maze
+
 import basenets
 import agents
-import gym
-from envs.maze_env import Maze
 import configs
+
+from tensorboardX import SummaryWriter
+from matplotlib import pyplot
 
 
 DICRETE_ACTION_SPACE_LIST = ("CartPole-v1",)
@@ -29,8 +36,8 @@ def run_DQN(env, agent, max_episode, step_episode = np.inf, isrender = False, re
     if env['name'] not in DICRETE_ACTION_SPACE_LIST:
         raise RuntimeError("DQN is used for games with dicrete action space.")
     step = 0
+    total_r = 0
     for episode in range(max_episode):
-        total_r = 0
         observation = env['env'].reset()
         t = 0
         while(t < step_episode):
@@ -54,7 +61,8 @@ def run_DQN(env, agent, max_episode, step_episode = np.inf, isrender = False, re
             agent.store_transition(transition)
             # training
             if step > agent.memory.max_size:
-                agent.learn()
+                for i in range(args.updates_per_step):
+                    agent.learn()
             step += 1
             t += 1
             # if the episode is done
@@ -62,18 +70,21 @@ def run_DQN(env, agent, max_episode, step_episode = np.inf, isrender = False, re
                 break
             # prepare for next step
             observation = observation_
-        print('reward: ' + str(total_r) + ' episode: ' + str(episode))
+        if (episode + 1) % args.display == 0:
+            print('reward: ' + str(total_r / args.display) + ' episode: ' + str(episode + 1))
+            logger.add_scalar("reward/train", total_r / args.display, episode)
+            total_r = 0
+
         # if reward of the episode is higher than the threshold, visualize the training process
         if renderth is not None and total_r > renderth:
             isrender = True
-    print('game over')
     env['env'].close()
 
 def run_PG(env, agent, max_episode, step_episode = np.inf, isrender = False, renderth = None):
     step = 0
+    total_r = 0
     for i_episode in range(max_episode):
         observation = env['env'].reset()
-        total_r = 0
         t = 0
         while (t < step_episode):
             if isrender:
@@ -111,10 +122,13 @@ def run_PG(env, agent, max_episode, step_episode = np.inf, isrender = False, ren
                 break
             # swap observation
             observation = observation_
-        print('episode: ' + str(i_episode) + '   reward: ' + str(total_r))
-        print("Episode finished after {} timesteps".format(t))
+        if (i_episode + 1) % args.display == 0:
+            print('episode: ' + str(i_episode + 1) + '   reward: ' + str(total_r / args.display))
+            logger.add_scalar("reward/train", total_r / args.display, i_episode)
+            total_r = 0
         if step >= agent.memory.max_size:
-            agent.learn()
+            for i in range(args.updates_per_step):
+                agent.learn()
             step = 0
         if renderth is not None and total_r > renderth:
             isrender = True
@@ -123,9 +137,9 @@ def run_DPG(env, agent, max_episode, step_episode = np.inf, isrender = False, re
     if env['name'] not in CONTINUOUS_ACTION_SPACE_LIST:
         raise RuntimeError("DPG is used for games with continuous action space.")
     step = 0
+    total_r = 0
     for i_episode in range(max_episode):
         observation = env['env'].reset()
-        total_r = 0
         t = 0
         while (t < step_episode):
             if isrender:
@@ -150,25 +164,55 @@ def run_DPG(env, agent, max_episode, step_episode = np.inf, isrender = False, re
             }
             agent.store_transition(transition)
             if step >= agent.memory.max_size:
-                agent.learn()
+                for i in range(args.updates_per_step):
+                    agent.learn()
             step += 1
             t += 1
             if done:
                 break
             # swap observation
             observation = observation_
-        print('episode: ' + str(i_episode) + '   reward: ' + str(total_r))
-        print("Episode finished after {} timesteps".format(t))
+        if (i_episode + 1) % args.display == 0:
+            print('episode: ' + str(i_episode + 1) + '   reward: ' + str(total_r / args.display))
+            logger.add_scalar("reward/train", total_r / args.display, i_episode)
+            if renderth is not None and total_r / args.display > renderth:
+                isrender = True
+            total_r = 0
 
-        if renderth is not None and total_r > renderth:
-            isrender = True
+def arg_parser():
+    parser = argparse.ArgumentParser(description='PyTorch REINFORCE example')
+    parser.add_argument('--algo', default='NAF',
+                        help='algorithm to use: DQN | DDQN | DuelingDQN | DDPG | NAF | PG | NPG | TRPO | PPO')
+    parser.add_argument('--env', default="Pendulum-v0",
+                        help='name of the environment to run')
+    parser.add_argument('--ou_noise', type=bool, default=True)
+    # TODO: SUPPORT PARAM NOISE
+    parser.add_argument('--param_noise', type=bool, default=False)
+    # TODO: SUPPORT NOISE END
+    parser.add_argument('--exploration_end', type=int, default=100, metavar='N',
+                        help='number of episodes with noise (default: 100)')
+    parser.add_argument('--seed', type=int, default=4, metavar='N',
+                        help='random seed (default: 4)')
+    parser.add_argument('--num_steps', type=int, default=200, metavar='N',
+                        help='max episode length (default: 200)')
+    parser.add_argument('--num_episodes', type=int, default=500, metavar='N',
+                        help='number of episodes (default: 500)')
+    parser.add_argument('--updates_per_step', type=int, default=1, metavar='N',
+                        help='model updates per simulator step (default: 1)')
+    parser.add_argument('--display', type=int, default=5, metavar='N',
+                        help='episode interval for display (default: 5)')
+    args = parser.parse_args()
+    return args
 
 if __name__ == "__main__":
+    args = arg_parser()
+    torch.manual_seed(args.seed)
+    np.random.seed(args.seed)
     # maze game
     env = {}
-    env['name'] = "Pendulum-v0"
-    # env['name'] = "CartPole-v1"
+    env['name'] = args.env
     env['env'] = gym.make(env['name'])
+    env['env'].seed(args.seed)
     env['env'] = env['env'].unwrapped
     n_features = env['env'].observation_space.shape[0]
     if env['name'] in DICRETE_ACTION_SPACE_LIST:
@@ -182,13 +226,22 @@ if __name__ == "__main__":
     else:
         raise RuntimeError("Game not defined as dicrete or continuous.")
 
-    # RL_brain = agents.DuelingDQN(configs.DQN_CartPolev1.DQNconfig)
-    # run_DQN(env, RL_brain, max_episode=10000, renderth = 500)
+    logger = SummaryWriter(comment = args.algo + "-" + args.env)
 
-    # RL_brain = agents.PPO_Gaussian(configs.PPO_Pendulumv0.PPOconfig)
-    # RL_brain = agents.TRPO_Gaussian(configs.TRPO_Pendulumv0.TRPOconfig)
-    # run_PG(env, RL_brain, max_episode = 1000, step_episode = 200)
-
-    # RL_brain = agents.NAF(configs.NAF_Pendulumv0.NAFconfig)
-    RL_brain = agents.DDPG(configs.DDPG_Pendulumv0.DDPGconfig)
-    run_DPG(env, RL_brain, max_episode = 1000, step_episode = 200)
+    if args.algo in ("DQN", "DDQN", "DuelingDQN"):
+        RL_brain = eval("agents." + args.algo + "(configs." + args.algo + "_" +
+                        "".join(args.env.split("-")) + "." + args.algo + "config)")
+        run_DQN(env, RL_brain, max_episode=args.num_episodes, renderth=args.num_steps)
+    elif args.algo in ("PG", "NPG", "TRPO", "PPO"):
+        if DICRETE_ACTION_SPACE:
+            RL_brain = eval("agents." + args.algo + "_Softmax(configs." + args.algo + "_" +
+                            "".join(args.env.split("-")) + "." + args.algo + "config)")
+        else:
+            RL_brain = eval("agents." + args.algo + "_Gaussian(configs." + args.algo + "_" +
+                            "".join(args.env.split("-")) + "." + args.algo + "config)")
+        run_PG(env, RL_brain, max_episode=args.num_episodes, step_episode=args.num_steps)
+    elif args.algo in ("DDPG", "NAF"):
+        RL_brain = eval("agents." + args.algo + "(configs." + args.algo + "_" +
+                        "".join(args.env.split("-")) + "." + args.algo + "config)")
+        run_DPG(env, RL_brain, max_episode=args.num_episodes, step_episode=args.num_steps)
+    logger.close()

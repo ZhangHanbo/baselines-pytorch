@@ -25,11 +25,13 @@ class NAF(Agent):
         # initialize zero memory [s, a, r, s_]
         self.memory = databuffer(config)
         self.e_NAF = FCNAF(self.n_states, self.n_action_dims,
-                           n_hiddens=[100] ,
+                           n_hiddens=config['hidden_layers'],
+                           usebn=config['use_batch_norm'],
                            action_active=F.tanh,
                            action_scaler=self.action_bounds)
         self.t_NAF = FCNAF(self.n_states, self.n_action_dims,
-                           n_hiddens=[100] ,
+                           n_hiddens=config['hidden_layers'],
+                           usebn=config['use_batch_norm'],
                            action_active=F.tanh,
                            action_scaler=self.action_bounds)
         self.hard_update(self.t_NAF, self.e_NAF)

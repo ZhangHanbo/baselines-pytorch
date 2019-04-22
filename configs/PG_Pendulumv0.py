@@ -9,5 +9,7 @@ PGconfig = {
         'batch_size': 500,
         'GAE_lambda': 0.97,
         'value_type' : 'FC',
+        'hidden_layers' : [50],
+        'use_batch_norm' : False,
         'optimizer': optim.Adam
     }

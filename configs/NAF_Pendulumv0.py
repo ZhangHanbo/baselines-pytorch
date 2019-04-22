@@ -9,8 +9,11 @@ NAFconfig = {
         'noise_min': 0.3,
         'noise_decrease': 0.0005,
         'reward_decay': 0.95,
-        'lr': 0.01,
-        'tau': 0.01,
+        # Higher learning rate will cause faster convergence but be unstable. [0.001, 0.01] is recommanded.
+        'lr': 0.001,
+        'tau': 0.001,
         'dicrete_action': False,
+        'hidden_layers' : [50],
+        'use_batch_norm' : False,
         'optimizer': optim.Adam,
     }

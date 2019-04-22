@@ -25,7 +25,10 @@ class PG(Agent):
         if self.value_type is not None:
             # initialize value network architecture
             if self.value_type == 'FC':
-                self.value = FCVALUE(self.n_states)
+                self.value = FCVALUE(self.n_states,
+                                     n_hiddens=config['hidden_layers'],
+                                     usebn=config['use_batch_norm']
+                                     )
             # choose estimator, including Q, A and GAE.
             self.lamb = config['GAE_lambda']
             # value approximator optimizer
@@ -160,8 +163,9 @@ class PG_Gaussian(PG):
                                    self.n_action_dims,  # output dim
                                    sigma=2,
                                    outactive=F.tanh,
-                                   outscaler=self.action_bounds
-                                   )
+                                   outscaler=self.action_bounds,
+                                   n_hiddens=config['hidden_layers'],
+                                   usebn=config['use_batch_norm'])
         if self.mom is not None:
             self.optimizer = config['optimizer'](self.policy.parameters(), lr=self.lr, momontum = self.mom)
         else:
@@ -244,6 +248,8 @@ class PG_Softmax(PG):
         self.memory = databuffer_PG_softmax(hyperparams)
         self.policy = FCPG_Softmax(self.n_states,  # input dim
                                    self.n_actions,  # output dim
+                                   n_hiddens=config['hidden_layers'],
+                                   usebn=config['use_batch_norm']
                                    )
         if self.mom is not None:
             self.optimizer = config['optimizer'](self.policy.parameters(), lr=self.lr, momontum = self.mom)

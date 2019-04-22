@@ -16,8 +16,12 @@ class DDQN(DQN):
         config.update(hyperparams)
         DQN.__init__(self, config)
         if type(self) == DDQN:
-            self.e_DQN = FCDQN(self.n_states, self.n_actions, n_hiddens = [50])
-            self.t_DQN = FCDQN(self.n_states, self.n_actions, n_hiddens = [50])
+            self.e_DQN = FCDQN(self.n_states, self.n_actions,
+                               n_hiddens=config['hidden_layers'],
+                               usebn=config['use_batch_norm'])
+            self.t_DQN = FCDQN(self.n_states, self.n_actions,
+                               n_hiddens=config['hidden_layers'],
+                               usebn=config['use_batch_norm'])
             self.lossfunc = config['loss']()
             if self.mom == 0 or self.mom is None:
                 self.optimizer = config['optimizer'](self.e_DQN.parameters(),lr = self.lr)

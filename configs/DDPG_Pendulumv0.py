@@ -9,9 +9,11 @@ DDPGconfig = {
         'noise_min': 0.3,
         'noise_decrease': 0.0005,
         'reward_decay': 0.95,
-        'lr': 0.01,
+        'lr': 0.001,
         'lr_a': 0.001,
-        'tau': 0.01,
+        'tau': 0.001,
         'dicrete_action': False,
+        'hidden_layers' : [50],
+        'use_batch_norm' : False,
         'optimizer': optim.Adam,
     }
