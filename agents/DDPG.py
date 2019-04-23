@@ -9,6 +9,7 @@ from config import DDPG_CONFIG
 import basenets
 import copy
 from utils import databuffer
+import os
 
 class DDPG(Agent):
     def __init__(self,hyperparams):
@@ -20,7 +21,7 @@ class DDPG(Agent):
         self.batch_size = config['batch_size']
         self.exploration_noise_decrement = config['noise_decrease']
         self.noise_min = config['noise_min']
-        self.lra = config['lr_a']
+        self.lrv = config['lr_v']
         self.replace_tau = config['tau']
         # initialize zero memory [s, a, r, s_]
         config['memory_size'] = self.memory_size
@@ -28,24 +29,30 @@ class DDPG(Agent):
         self.e_Actor = basenets.MLP(self.n_states, self.n_action_dims,
                                     n_hiddens=config['hidden_layers'],
                                     usebn=config['use_batch_norm'],
-                                    outactive=F.tanh,
+                                    nonlinear=config['act_func'],
+                                    outactive=config['out_act_func'],
                                     outscaler=self.action_bounds)
         self.t_Actor = basenets.MLP(self.n_states, self.n_action_dims,
                                     n_hiddens=config['hidden_layers'],
                                     usebn=config['use_batch_norm'],
-                                    outactive=F.tanh,
+                                    nonlinear=config['act_func'],
+                                    outactive=config['out_act_func'],
                                     outscaler=self.action_bounds)
         self.hard_update(self.t_Actor, self.e_Actor)
         self.e_Critic = basenets.MLP(self.n_states + self.n_action_dims, 1,
-                                     n_hiddens=config['hidden_layers'],
+                                     n_hiddens=config['hidden_layers_v']
+                                             if isinstance(config['hidden_layers_v'], list)
+                                             else config['hidden_layers'],
                                      usebn=config['use_batch_norm'])
         self.t_Critic = basenets.MLP(self.n_states + self.n_action_dims, 1,
-                                     n_hiddens=config['hidden_layers'],
+                                     n_hiddens=config['hidden_layers_v']
+                                             if isinstance(config['hidden_layers_v'], list)
+                                             else config['hidden_layers'],
                                      usebn=config['use_batch_norm'])
         self.hard_update(self.t_Critic, self.e_Critic)
         self.loss_func = config['critic_loss']()
-        self.optimizer_a = config['optimizer_a'](self.e_Actor.parameters(), lr = self.lra)
-        self.optimizer_c = config['optimizer_c'](self.e_Critic.parameters(), lr = self.lr)
+        self.optimizer_a = config['optimizer_a'](self.e_Actor.parameters(), lr = self.lr)
+        self.optimizer_c = config['optimizer_c'](self.e_Critic.parameters(), lr = self.lrv)
 
     def choose_action(self,s):
         self.e_Actor.eval()
@@ -88,3 +95,36 @@ class DDPG(Agent):
         self.noise = self.noise * (
                 1 - self.exploration_noise_decrement) if self.noise > self.noise_min else self.noise_min
 
+    def save_model(self, save_path):
+        print("saving models...")
+        save_dict_a = {
+            'model': self.e_Actor.module.state_dict(),
+            'optimizer': self.optimizer_a.state_dict(),
+            'noise': self.noise,
+            'episode': self.episode_counter,
+            'step': self.learn_step_counter,
+        }
+        save_dict_c = {
+            'model': self.e_Critic.module.state_dict(),
+            'optimizer': self.optimizer_c.state_dict(),
+        }
+        torch.save(save_dict_a, os.path.join(save_path, "actor" + str(self.learn_step_counter) + ".pth"))
+        torch.save(save_dict_c, os.path.join(save_path, "critic" + str(self.learn_step_counter) + ".pth"))
+
+    def load_model(self, load_path, load_point):
+        actor_name = os.path.join(load_path, "actor" + str(load_point) + ".pth")
+        print("loading checkpoint %s" % (actor_name))
+        checkpoint = torch.load(actor_name)
+        self.e_Actor.load_state_dict(checkpoint['model'])
+        self.optimizer_a.load_state_dict(checkpoint['optimizer'])
+        self.noise = checkpoint['noise']
+        self.learn_step_counter = checkpoint['step']
+        self.episode_counter = checkpoint['episode']
+        print("loaded checkpoint %s" % (actor_name))
+
+        critic_name = os.path.join(load_path, "critic" + str(load_point) + ".pth")
+        print("loading checkpoint %s" % (critic_name))
+        checkpoint = torch.load(critic_name)
+        self.e_Critic.load_state_dict(checkpoint['model'])
+        self.optimizer_c.load_state_dict(checkpoint['optimizer'])
+        print("loaded checkpoint %s" % (critic_name))

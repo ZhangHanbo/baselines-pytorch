@@ -1,4 +1,5 @@
 from torch import optim
+import torch.nn.functional as F
 
 PPOconfig = {
         'n_states': 4,
@@ -17,5 +18,5 @@ PPOconfig = {
         'use_batch_norm' : False,
         'optimizer': optim.Adam,
         'v_optimizer': optim.Adam,
-        'value_type': 'FC'
+        'value_type': 'FC',
     }

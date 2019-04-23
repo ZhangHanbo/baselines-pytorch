@@ -9,7 +9,7 @@ class FCDQN(nn.Module):
                  n_inputfeats,  # input dim
                  n_actions,  # action dim
                  n_hiddens=[30],  # hidden unit number list
-                 nonlinear=F.relu,
+                 nonlinear=F.tanh,
                  usebn = False,
                  ):
         super(FCDQN, self).__init__()
@@ -27,7 +27,7 @@ class FCDuelingDQN(nn.Module):
                  n_inputfeats,
                  n_actions,
                  n_hiddens=[30],
-                 nonlinear=F.relu,
+                 nonlinear=F.tanh,
                  usebn = False):
         super(FCDuelingDQN, self).__init__()
         # using MLP as hidden layers

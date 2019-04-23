@@ -1,8 +1,13 @@
+import TRPO_CartPolev1
+import PPO_CartPolev1
+import DQN_CartPolev1
+
 import DDPG_Pendulumv0
 import NAF_Pendulumv0
-import TRPO_CartPolev1
-import TRPO_Pendulumv0
-import PPO_CartPolev1
-import PPO_Pendulumv0
-import DQN_CartPolev1
 import PG_Pendulumv0
+import PPO_Pendulumv0
+import TRPO_Pendulumv0
+
+import PPO_Reacherv1
+import NAF_Reacherv1
+import DDPG_Reacherv1

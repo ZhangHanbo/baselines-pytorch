@@ -9,7 +9,7 @@ class FCNAF(MLP):
                  n_inputfeats,    # input dim
                  n_actions,   # action dim
                  n_hiddens = [30],  # hidden unit number list
-                 nonlinear = F.relu,
+                 nonlinear = F.tanh,
                  usebn = False,
                  action_active = None,
                  action_scaler = None

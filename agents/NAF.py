@@ -10,6 +10,7 @@ from agents.Agent import Agent
 from config import NAF_CONFIG
 from rlnets.NAF import FCNAF
 from utils import databuffer
+import os
 
 class NAF(Agent):
     def __init__(self,hyperparams):
@@ -27,12 +28,14 @@ class NAF(Agent):
         self.e_NAF = FCNAF(self.n_states, self.n_action_dims,
                            n_hiddens=config['hidden_layers'],
                            usebn=config['use_batch_norm'],
-                           action_active=F.tanh,
+                           nonlinear=config['act_func'],
+                           action_active=config['out_act_func'],
                            action_scaler=self.action_bounds)
         self.t_NAF = FCNAF(self.n_states, self.n_action_dims,
                            n_hiddens=config['hidden_layers'],
                            usebn=config['use_batch_norm'],
-                           action_active=F.tanh,
+                           nonlinear=config['act_func'],
+                           action_active=config['out_act_func'],
                            action_scaler=self.action_bounds)
         self.hard_update(self.t_NAF, self.e_NAF)
         self.loss_func = config['loss']()
@@ -78,3 +81,25 @@ class NAF(Agent):
         self.learn_step_counter += 1
         self.noise = self.noise * (1 - self.exploration_noise_decrement) \
                      if self.noise > self.noise_min else self.noise_min
+
+    def save_model(self, save_path):
+        print("saving models...")
+        save_dict = {
+            'model': self.e_NAF.module.state_dict(),
+            'optimizer': self.optimizer.state_dict(),
+            'noise': self.noise,
+            'episode': self.episode_counter,
+            'step': self.learn_step_counter,
+        }
+        torch.save(save_dict, os.path.join(save_path, "policy" + str(self.learn_step_counter) + ".pth"))
+
+    def load_model(self, load_path, load_point):
+        policy_name = os.path.join(load_path, "policy" + str(load_point) + ".pth")
+        print("loading checkpoint %s" % (policy_name))
+        checkpoint = torch.load(policy_name)
+        self.e_NAF.load_state_dict(checkpoint['model'])
+        self.optimizer.load_state_dict(checkpoint['optimizer'])
+        self.noise = checkpoint['noise']
+        self.learn_step_counter = checkpoint['step']
+        self.episode_counter = checkpoint['episode']
+        print("loaded checkpoint %s" % (policy_name))

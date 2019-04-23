@@ -11,7 +11,7 @@ class FCPG_Gaussian(MLP):
                  n_actions,   # output dim
                  sigma,
                  n_hiddens = [30],  # hidden unit number list
-                 nonlinear = F.relu,
+                 nonlinear = F.tanh,
                  usebn = False,
                  outactive = None,
                  outscaler = None
@@ -37,7 +37,7 @@ class FCPG_Softmax(MLP):
                  n_inputfeats,    # input dim
                  n_actions,   # output dim
                  n_hiddens = [10],  # hidden unit number list
-                 nonlinear = F.relu,
+                 nonlinear = F.tanh,
                  usebn = False,
                  outactive = F.softmax,
                  outscaler = None
@@ -61,7 +61,7 @@ class FCVALUE(MLP):
     def __init__(self,
                  n_inputfeats,
                  n_hiddens = [30],  # hidden unit number list
-                 nonlinear = F.relu,
+                 nonlinear = F.tanh,
                  usebn = False,
                  outactive = None,
                  outscaler = None

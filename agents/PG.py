@@ -12,6 +12,7 @@ from config import PG_CONFIG
 from rlnets.PG import FCPG_Gaussian, FCPG_Softmax, FCVALUE
 from utils import databuffer, databuffer_PG_gaussian, databuffer_PG_softmax
 import abc
+import os
 
 class PG(Agent):
     __metaclass__ = abc.ABCMeta
@@ -26,7 +27,9 @@ class PG(Agent):
             # initialize value network architecture
             if self.value_type == 'FC':
                 self.value = FCVALUE(self.n_states,
-                                     n_hiddens=config['hidden_layers'],
+                                     n_hiddens=config['hidden_layers_v']
+                                                if isinstance(config['hidden_layers_v'], list)
+                                                else config['hidden_layers'],
                                      usebn=config['use_batch_norm']
                                      )
             # choose estimator, including Q, A and GAE.
@@ -151,20 +154,55 @@ class PG(Agent):
         self.optimizer.step()
         self.learn_step_counter += 1
 
+    def save_model(self, save_path):
+        print("saving models...")
+        save_dict = {
+            'model': self.policy.module.state_dict(),
+            'optimizer': self.optimizer.state_dict(),
+            'episode': self.episode_counter,
+            'step': self.learn_step_counter,
+        }
+        torch.save(save_dict, os.path.join(save_path, "policy" + str(self.learn_step_counter) + ".pth"))
+        if self.value_type is not None:
+            save_dict = {
+                'model': self.value.module.state_dict(),
+                'optimizer': self.v_optimizer.state_dict(),
+            }
+            torch.save(save_dict, os.path.join(save_path, "value" + str(self.learn_step_counter) + ".pth"))
+
+    def load_model(self, load_path, load_point):
+        policy_name = os.path.join(load_path, "policy" + str(load_point) + ".pth")
+        print("loading checkpoint %s" % (policy_name))
+        checkpoint = torch.load(policy_name)
+        self.policy.load_state_dict(checkpoint['model'])
+        self.optimizer.load_state_dict(checkpoint['optimizer'])
+        self.learn_step_counter = checkpoint['step']
+        self.episode_counter = checkpoint['episode']
+        print("loaded checkpoint %s" % (policy_name))
+
+        if self.value_type is not None:
+            value_name = os.path.join(load_path, "value" + str(load_point) + ".pth")
+            print("loading checkpoint %s" % (value_name))
+            checkpoint = torch.load(value_name)
+            self.value.load_state_dict(checkpoint['model'])
+            self.v_optimizer.load_state_dict(checkpoint['optimizer'])
+            print("loaded checkpoint %s" % (value_name))
+
 class PG_Gaussian(PG):
     def __init__(self,hyperparams):
         config = copy.deepcopy(PG_CONFIG)
         config.update(hyperparams)
         super(PG_Gaussian, self).__init__(config)
         config['memory_size'] = self.memory_size
-        self.memory = databuffer_PG_gaussian(hyperparams)
+        self.memory = databuffer_PG_gaussian(config)
         self.action_bounds = config['action_bounds']
         self.policy = FCPG_Gaussian(self.n_states,  # input dim
                                    self.n_action_dims,  # output dim
                                    sigma=2,
-                                   outactive=F.tanh,
+                                   outactive=config['out_act_func'],
                                    outscaler=self.action_bounds,
                                    n_hiddens=config['hidden_layers'],
+                                   nonlinear=config['act_func'],
                                    usebn=config['use_batch_norm'])
         if self.mom is not None:
             self.optimizer = config['optimizer'](self.policy.parameters(), lr=self.lr, momontum = self.mom)
@@ -245,11 +283,13 @@ class PG_Softmax(PG):
         super(PG_Softmax, self).__init__(config)
         # 3 is a, r, done, n_actions is the distribution.
         config['memory_size'] = self.memory_size
-        self.memory = databuffer_PG_softmax(hyperparams)
+        self.memory = databuffer_PG_softmax(config)
         self.policy = FCPG_Softmax(self.n_states,  # input dim
                                    self.n_actions,  # output dim
                                    n_hiddens=config['hidden_layers'],
-                                   usebn=config['use_batch_norm']
+                                   nonlinear=config['act_func'],
+                                   outactive=config['out_act_func'],
+                                   usebn=config['use_batch_norm'],
                                    )
         if self.mom is not None:
             self.optimizer = config['optimizer'](self.policy.parameters(), lr=self.lr, momontum = self.mom)

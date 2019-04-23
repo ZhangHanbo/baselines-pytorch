@@ -18,10 +18,12 @@ class DDQN(DQN):
         if type(self) == DDQN:
             self.e_DQN = FCDQN(self.n_states, self.n_actions,
                                n_hiddens=config['hidden_layers'],
-                               usebn=config['use_batch_norm'])
+                               usebn=config['use_batch_norm'],
+                               nonlinear=config['act_func'])
             self.t_DQN = FCDQN(self.n_states, self.n_actions,
                                n_hiddens=config['hidden_layers'],
-                               usebn=config['use_batch_norm'])
+                               usebn=config['use_batch_norm'],
+                               nonlinear=config['act_func'])
             self.lossfunc = config['loss']()
             if self.mom == 0 or self.mom is None:
                 self.optimizer = config['optimizer'](self.e_DQN.parameters(),lr = self.lr)

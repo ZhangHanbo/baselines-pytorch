@@ -6,6 +6,7 @@ import copy
 from config import DQN_CONFIG
 from rlnets.DQN import FCDQN
 from utils import databuffer
+import os
 
 class DQN(Agent):
     def __init__(self, hyperparams):
@@ -24,10 +25,12 @@ class DQN(Agent):
         if type(self) == DQN:
             self.e_DQN = FCDQN(self.n_states, self.n_actions,
                                n_hiddens=config['hidden_layers'],
-                               usebn=config['use_batch_norm'])
+                               usebn=config['use_batch_norm'],
+                               nonlinear=config['act_func'])
             self.t_DQN = FCDQN(self.n_states, self.n_actions,
                                n_hiddens=config['hidden_layers'],
-                               usebn=config['use_batch_norm'])
+                               usebn=config['use_batch_norm'],
+                               nonlinear=config['act_func'])
             self.lossfunc = config['loss']()
             if self.mom == 0 or self.mom is None:
                 self.optimizer = config['optimizer'](self.e_DQN.parameters(),lr = self.lr)
@@ -74,3 +77,25 @@ class DQN(Agent):
         # increasing epsilon
         self.epsilon = self.epsilon + self.epsilon_increment if self.epsilon < self.epsilon_max else self.epsilon_max
         self.learn_step_counter += 1
+
+    def save_model(self, save_path):
+        print("saving models...")
+        save_dict = {
+            'model': self.e_DQN.module.state_dict(),
+            'optimizer': self.optimizer.state_dict(),
+            'episode': self.episode_counter,
+            'step': self.learn_step_counter,
+            'epsilon': self.epsilon,
+        }
+        torch.save(save_dict, os.path.join(save_path, "policy" + str(self.learn_step_counter) + ".pth"))
+
+    def load_model(self, load_path, load_point):
+        policy_name = os.path.join(load_path, "policy" + str(load_point) + ".pth")
+        print("loading checkpoint %s" % (policy_name))
+        checkpoint = torch.load(policy_name)
+        self.e_DQN.load_state_dict(checkpoint['model'])
+        self.optimizer.load_state_dict(checkpoint['optimizer'])
+        self.learn_step_counter = checkpoint['step']
+        self.episode_counter = checkpoint['episode']
+        self.epsilon = checkpoint['epsilon']
+        print("loaded checkpoint %s" % (policy_name))

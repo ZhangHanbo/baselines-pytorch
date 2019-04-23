@@ -9,7 +9,7 @@ class MLP(nn.Module):
                  n_inputfeats,    # input dim
                  n_outputfeats,   # output dim
                  n_hiddens = [30],  # hidden unit number list
-                 nonlinear = F.relu,
+                 nonlinear = F.tanh,
                  usebn = False,
                  outactive = None,
                  outscaler = None

@@ -1,5 +1,5 @@
 from torch import optim
-
+import torch.nn.functional as F
 PGconfig = {
         'n_states': 3,
         'n_action_dims': 1,
@@ -11,5 +11,6 @@ PGconfig = {
         'value_type' : 'FC',
         'hidden_layers' : [50],
         'use_batch_norm' : False,
-        'optimizer': optim.Adam
+        'optimizer': optim.Adam,
+        'out_act_func': F.tanh,
     }

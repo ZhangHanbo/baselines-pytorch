@@ -10,7 +10,7 @@ DDPGconfig = {
         'noise_decrease': 0.0005,
         'reward_decay': 0.95,
         'lr': 0.001,
-        'lr_a': 0.001,
+        'lr_v': 0.001,
         'tau': 0.001,
         'dicrete_action': False,
         'hidden_layers' : [50],

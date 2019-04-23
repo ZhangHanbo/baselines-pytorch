@@ -28,6 +28,7 @@ class Agent:
         self.gamma = config['reward_decay']
         self.memory_size = config['memory_size']
         self.learn_step_counter = 0
+        self.episode_counter = 0
         self.cost_his = []
 
     @abc.abstractmethod
@@ -52,4 +53,12 @@ class Agent:
     def hard_update(self, target, eval):
         target.load_state_dict(eval.state_dict())
         # print('\ntarget_params_replaced\n')
+
+    @abc.abstractmethod
+    def save_model(self, save_path):
+        raise NotImplementedError("Must be implemented in subclass.")
+
+    @abc.abstractmethod
+    def load_model(self, load_path, load_point):
+        raise NotImplementedError("Must be implemented in subclass.")
 
