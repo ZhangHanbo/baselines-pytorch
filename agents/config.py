@@ -12,6 +12,11 @@ AGENT_CONFIG = {
     # 'hidden_layers' defines the layers of the "mainbody".
     # Value-based RL: Q net; Policy-based RL: Policy net; Actor-critic RL: Actor
     'hidden_layers':[50],
+    'hindsight_replay': False,
+    'num_episode': 500,
+    'num_step': 200,
+    'update_num_per_step':1,
+    'snapshot_episode': 100,
 }
 
 DQN_CONFIG = {
@@ -23,6 +28,7 @@ DQN_CONFIG = {
     'batch_size': 32,
     'act_func': F.tanh,
     'out_act_func': None,
+
 }
 
 DDPG_CONFIG = {
@@ -65,6 +71,7 @@ PG_CONFIG = {
     'mom_v' : None,
     'act_func': F.tanh,
     'out_act_func': None,
+    'init_noise': 1.,
 }
 
 NPG_CONFIG = {

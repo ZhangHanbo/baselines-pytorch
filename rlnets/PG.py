@@ -32,6 +32,10 @@ class FCPG_Gaussian(MLP):
         x = MLP.forward(self, x)
         return x, torch.pow(self.sigma.expand_as(x),2)
 
+    def cuda(self, device = None):
+        self.sigma.cuda()
+        return self._apply(lambda t: t.cuda(device))
+
 class FCPG_Softmax(MLP):
     def __init__(self,
                  n_inputfeats,    # input dim

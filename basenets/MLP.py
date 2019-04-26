@@ -47,7 +47,7 @@ class MLP(nn.Module):
             if layernum == len(self.layers) -1 :
                 if self.outactive is not None:
                     if self.outscaler is not None:
-                        x = self.outscaler * self.outactive(x)
+                        x = self.outscaler.type_as(x) * self.outactive(x)
                     else:
                         x = self.outactive(x)
             else:

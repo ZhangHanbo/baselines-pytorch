@@ -37,18 +37,25 @@ class DQN(Agent):
             else:
                 self.optimizer = config['optimizer'](self.e_DQN.parameters(), lr=self.lr, momentum = self.mom)
 
+    def cuda(self):
+        Agent.cuda(self)
+        self.e_DQN = self.e_DQN.cuda()
+        self.t_DQN = self.t_DQN.cuda()
+
     def choose_action(self, observation):
         # to have batch dimension when feed into tf placeholder
         observation = observation[np.newaxis, :]
         observation = torch.Tensor(observation)
+        if self.use_cuda:
+            observation = observation.cuda()
         if np.random.uniform() < self.epsilon:
             # forward feed the observation and get q value for every actions
             self.e_DQN.eval()
             actions_value = self.e_DQN(observation)
             self.e_DQN.train()
             (_ , action) = torch.max(actions_value, 1)
-            distri = actions_value.detach().numpy()
-            action = int(action.data[0])
+            distri = actions_value.detach().cpu().numpy()
+            action = action[0].cpu().numpy()
         else:
             distri = 1. / self.n_actions * np.ones(self.n_actions)
             action = np.random.randint(0, self.n_actions)
@@ -60,12 +67,15 @@ class DQN(Agent):
             self.hard_update(self.t_DQN, self.e_DQN)
         batch_memory = self.sample_batch(self.batch_size)[0]
 
-        r = torch.Tensor(batch_memory['reward'])
-        s_ = torch.Tensor(batch_memory['next_state'])
-        q_target = r + self.gamma * torch.max(self.t_DQN(s_), 1)[0].view(self.batch_size, 1)
-        s = torch.Tensor(batch_memory['state'])
-        q_eval = self.e_DQN(s)
-        q_eval_wrt_a = q_eval.gather(1, torch.LongTensor(batch_memory['action']))
+        self.r = self.r.resize_(batch_memory['reward'].shape).copy_(torch.Tensor(batch_memory['reward']))
+        self.done = self.done.resize_(batch_memory['done'].shape).copy_(torch.Tensor(batch_memory['done']))
+        self.s_ = self.s_.resize_(batch_memory['next_state'].shape).copy_(torch.Tensor(batch_memory['next_state']))
+        self.a = self.a.resize_(batch_memory['action'].shape).copy_(torch.Tensor(batch_memory['action']))
+        self.s = self.s.resize_(batch_memory['state'].shape).copy_(torch.Tensor(batch_memory['state']))
+
+        q_target = self.r + self.gamma * torch.max(self.t_DQN(self.s_), 1)[0].view(self.batch_size, 1)
+        q_eval = self.e_DQN(self.s)
+        q_eval_wrt_a = q_eval.gather(1, self.a.long())
         q_target = q_target.detach()
 
         self.loss = self.lossfunc(q_eval_wrt_a, q_target)
@@ -81,7 +91,7 @@ class DQN(Agent):
     def save_model(self, save_path):
         print("saving models...")
         save_dict = {
-            'model': self.e_DQN.module.state_dict(),
+            'model': self.e_DQN.state_dict(),
             'optimizer': self.optimizer.state_dict(),
             'episode': self.episode_counter,
             'step': self.learn_step_counter,

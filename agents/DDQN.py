@@ -36,16 +36,19 @@ class DDQN(DQN):
             self.hard_update(self.t_DQN, self.e_DQN)
         batch_memory = self.sample_batch(self.batch_size)[0]
 
-        r = torch.Tensor(batch_memory['reward'])
-        s_ = torch.Tensor(batch_memory['next_state'])
-        q_target = self.t_DQN(s_)
-        q_eval_wrt_s_ = self.e_DQN(s_)
-        a_eval_wrt_s_ = torch.max(q_eval_wrt_s_,1)[1].view(self.batch_size, 1)
-        q_target = r + self.gamma * q_target.gather(1, a_eval_wrt_s_)
+        self.r = self.r.resize_(batch_memory['reward'].shape).copy_(torch.Tensor(batch_memory['reward']))
+        self.done = self.done.resize_(batch_memory['done'].shape).copy_(torch.Tensor(batch_memory['done']))
+        self.s_ = self.s_.resize_(batch_memory['next_state'].shape).copy_(torch.Tensor(batch_memory['next_state']))
+        self.a = self.a.resize_(batch_memory['action'].shape).copy_(torch.Tensor(batch_memory['action']))
+        self.s = self.s.resize_(batch_memory['state'].shape).copy_(torch.Tensor(batch_memory['state']))
 
-        s = torch.Tensor(batch_memory['state'])
-        q_eval = self.e_DQN(s)
-        q_eval_wrt_a = q_eval.gather(1, torch.LongTensor(batch_memory['action']))
+        q_target = self.t_DQN(self.s_)
+        q_eval_wrt_s_ = self.e_DQN(self.s_)
+        a_eval_wrt_s_ = torch.max(q_eval_wrt_s_,1)[1].view(self.batch_size, 1)
+        q_target = self.r + self.gamma * q_target.gather(1, a_eval_wrt_s_)
+
+        q_eval = self.e_DQN(self.s)
+        q_eval_wrt_a = q_eval.gather(1, self.a.long())
         q_target = q_target.detach()
 
         self.loss = self.lossfunc(q_eval_wrt_a, q_target)

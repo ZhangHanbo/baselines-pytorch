@@ -43,7 +43,7 @@ class PPO(NPG):
                 self.loss = - torch.min(self.loss1, self.loss2).mean() - self.entropy_weight * entropy
             self.policy.zero_grad()
             self.loss.backward()
-            nn.utils.clip_grad_norm(self.policy.parameters(), self.max_grad_norm)
+            nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
             self.optimizer.step()
         self.learn_step_counter += 1
 

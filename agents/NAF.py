@@ -41,14 +41,22 @@ class NAF(Agent):
         self.loss_func = config['loss']()
         self.optimizer = config['optimizer'](self.e_NAF.parameters(), lr=self.lr)
 
+    def cuda(self):
+        Agent.cuda(self)
+        self.e_NAF = self.e_NAF.cuda()
+        self.t_NAF = self.t_NAF.cuda()
+
     def choose_action(self,s):
         self.e_NAF.eval()
         s = torch.Tensor(s)
         anoise = torch.normal(torch.zeros(self.n_action_dims),
                               self.noise * torch.ones(self.n_action_dims))
+        if self.use_cuda:
+            s = s.cuda()
+            anoise = anoise.cuda()
         _, preda,_ = self.e_NAF(s)
         self.e_NAF.train()
-        return np.array(preda.data + anoise)
+        return (preda.data + anoise).cpu().numpy()
 
     def learn(self):
         # check to replace target parameters
@@ -56,18 +64,18 @@ class NAF(Agent):
 
         # sample batch memory from all memory
         batch_memory = self.sample_batch(self.batch_size)[0]
-        r = torch.Tensor(batch_memory['reward'])
-        done = torch.Tensor(batch_memory['done'])
-        s_ = torch.Tensor(batch_memory['next_state'])
-        a = torch.Tensor(batch_memory['action'])
-        s = torch.Tensor(batch_memory['state'])
+        self.r = self.r.resize_(batch_memory['reward'].shape).copy_(torch.Tensor(batch_memory['reward']))
+        self.done = self.done.resize_(batch_memory['done'].shape).copy_(torch.Tensor(batch_memory['done']))
+        self.s_ = self.s_.resize_(batch_memory['next_state'].shape).copy_(torch.Tensor(batch_memory['next_state']))
+        self.a = self.a.resize_(batch_memory['action'].shape).copy_(torch.Tensor(batch_memory['action']))
+        self.s = self.s.resize_(batch_memory['state'].shape).copy_(torch.Tensor(batch_memory['state']))
 
-        V_, _, _ = self.t_NAF(s_)
-        q_target = r + self.gamma * V_
+        V_, _, _ = self.t_NAF(self.s_)
+        q_target = self.r + self.gamma * V_
         q_target = q_target.squeeze().detach()
 
-        V,mu,L = self.e_NAF(s)
-        a_mu = a - mu
+        V,mu,L = self.e_NAF(self.s)
+        a_mu = self.a - mu
         a_muxL = torch.bmm(a_mu.unsqueeze(1),L)
         A = -0.5 * torch.bmm( a_muxL, a_muxL.transpose(1,2)).squeeze()
         q_eval = V.squeeze() + A
@@ -85,7 +93,7 @@ class NAF(Agent):
     def save_model(self, save_path):
         print("saving models...")
         save_dict = {
-            'model': self.e_NAF.module.state_dict(),
+            'model': self.e_NAF.state_dict(),
             'optimizer': self.optimizer.state_dict(),
             'noise': self.noise,
             'episode': self.episode_counter,

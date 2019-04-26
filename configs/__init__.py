@@ -11,3 +11,7 @@ import TRPO_Pendulumv0
 import PPO_Reacherv1
 import NAF_Reacherv1
 import DDPG_Reacherv1
+
+import DDPG_BaxterReacherv0
+import PPO_BaxterReacherv0
+import NAF_BaxterReacherv0

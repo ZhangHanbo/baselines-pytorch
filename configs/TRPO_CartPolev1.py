@@ -1,4 +1,5 @@
 from torch import optim
+import torch.nn.functional as F
 
 TRPOconfig = {
         'n_states': 4,
@@ -13,4 +14,5 @@ TRPOconfig = {
         'v_optimizer': optim.LBFGS,
         'value_type': 'FC',
         'dicrete_action': True,
+        'out_act_function': F.softmax
     }

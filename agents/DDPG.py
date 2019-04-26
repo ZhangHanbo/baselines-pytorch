@@ -54,13 +54,23 @@ class DDPG(Agent):
         self.optimizer_a = config['optimizer_a'](self.e_Actor.parameters(), lr = self.lr)
         self.optimizer_c = config['optimizer_c'](self.e_Critic.parameters(), lr = self.lrv)
 
-    def choose_action(self,s):
+    def cuda(self):
+        Agent.cuda(self)
+        self.e_Actor = self.e_Actor.cuda()
+        self.e_Critic = self.e_Critic.cuda()
+        self.t_Actor = self.t_Actor.cuda()
+        self.t_Critic = self.t_Critic.cuda()
+
+    def choose_action(self, s):
         self.e_Actor.eval()
         s = torch.Tensor(s)
         anoise = torch.normal(torch.zeros(self.n_action_dims), self.noise * torch.ones(self.n_action_dims))
-        preda = self.e_Actor(s)
+        if self.use_cuda:
+            s = s.cuda()
+            anoise = anoise.cuda()
+        preda = self.e_Actor(s).detach()
         self.e_Actor.train()
-        return np.array((preda + anoise).detach()).squeeze()
+        return (preda + anoise).cpu().squeeze().numpy()
 
     def learn(self):
         # check to replace target parameters
@@ -69,15 +79,15 @@ class DDPG(Agent):
 
         # sample batch memory from all memory
         batch_memory = self.sample_batch(self.batch_size)[0]
-        r = torch.Tensor(batch_memory['reward'])
-        done = torch.Tensor(batch_memory['done'])
-        s_ = torch.Tensor(batch_memory['next_state'])
-        a = torch.Tensor(batch_memory['action'])
-        s = torch.Tensor(batch_memory['state'])
+        self.r = self.r.resize_(batch_memory['reward'].shape).copy_(torch.Tensor(batch_memory['reward']))
+        self.done = self.done.resize_(batch_memory['done'].shape).copy_(torch.Tensor(batch_memory['done']))
+        self.s_ = self.s_.resize_(batch_memory['next_state'].shape).copy_(torch.Tensor(batch_memory['next_state']))
+        self.a = self.a.resize_(batch_memory['action'].shape).copy_(torch.Tensor(batch_memory['action']))
+        self.s = self.s.resize_(batch_memory['state'].shape).copy_(torch.Tensor(batch_memory['state']))
 
-        q_target = r + self.gamma * self.t_Critic(torch.cat([s_, self.t_Actor(s_)], 1))
+        q_target = self.r + self.gamma * self.t_Critic(torch.cat([self.s_, self.t_Actor(self.s_)], 1))
         q_target = q_target.detach()
-        q_eval = self.e_Critic(torch.cat([s, a],1))
+        q_eval = self.e_Critic(torch.cat([self.s, self.a],1))
 
         # update critic
         self.e_Critic.zero_grad()
@@ -87,7 +97,7 @@ class DDPG(Agent):
 
         # update actor
         self.e_Actor.zero_grad()
-        self.loss_a = -self.e_Critic(torch.cat([s, self.e_Actor(s)],1)).mean()
+        self.loss_a = -self.e_Critic(torch.cat([self.s, self.e_Actor(self.s)],1)).mean()
         self.loss_a.backward()
         self.optimizer_a.step()
 
@@ -98,14 +108,14 @@ class DDPG(Agent):
     def save_model(self, save_path):
         print("saving models...")
         save_dict_a = {
-            'model': self.e_Actor.module.state_dict(),
+            'model': self.e_Actor.state_dict(),
             'optimizer': self.optimizer_a.state_dict(),
             'noise': self.noise,
             'episode': self.episode_counter,
             'step': self.learn_step_counter,
         }
         save_dict_c = {
-            'model': self.e_Critic.module.state_dict(),
+            'model': self.e_Critic.state_dict(),
             'optimizer': self.optimizer_c.state_dict(),
         }
         torch.save(save_dict_a, os.path.join(save_path, "actor" + str(self.learn_step_counter) + ".pth"))

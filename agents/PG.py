@@ -49,15 +49,27 @@ class PG(Agent):
         elif self.value_type is None:
             self.value = None
         # damping initialization, all the following will be used in PG algorithm
-        self.s = Variable(torch.Tensor([]))
-        self.a = Variable(torch.Tensor([]))
-        self.r = Variable(torch.Tensor([]))
-        self.done = Variable(torch.Tensor([]))
         self.policy = None
         self.optimizer = None
         self.A = None
         self.V = None
         self.sample_index = None
+        if self.using_batch:
+            self.s_batch = torch.FloatTensor(1)
+            self.a_batch = torch.FloatTensor(1)
+            self.r_batch = torch.FloatTensor(1)
+            self.done_batch = torch.FloatTensor(1)
+
+    def cuda(self):
+        Agent.cuda(self)
+        self.policy = self.policy.cuda()
+        if self.value_type is not None:
+            self.value = self.value.cuda()
+        if self.using_batch:
+            self.s_batch = self.s_batch.cuda()
+            self.a_batch = self.a_batch.cuda()
+            self.r_batch = self.r_batch.cuda()
+            self.done_batch = self.done_batch.cuda()
 
     @abc.abstractmethod
     def sample_batch(self, batchsize = None):
@@ -73,14 +85,14 @@ class PG(Agent):
 
     def estimate_value(self):
         masks = 1 - self.done
-        returns = Variable(torch.zeros(self.r.size(0), 1))
+        returns = torch.zeros(self.r.size(0), 1).type_as(self.r)
         prev_return = 0
         # using value approximator
         if self.value_type is not None:
             values = self.value(self.s)
             prev_value = 0
-            delta = Variable(torch.zeros(self.r.size(0), 1))
-            advantages = Variable(torch.zeros(self.r.size(0), 1))
+            delta = torch.zeros(self.r.size(0), 1).type_as(self.r)
+            advantages = torch.zeros(self.r.size(0), 1).type_as(self.r)
             prev_advantage = 0
             for i in reversed(range(self.r.size(0))):
                 delta[i] = self.r[i] + self.gamma * masks[i] * prev_value - values[i]
@@ -157,15 +169,15 @@ class PG(Agent):
     def save_model(self, save_path):
         print("saving models...")
         save_dict = {
-            'model': self.policy.module.state_dict(),
+            'model': self.policy.state_dict(),
             'optimizer': self.optimizer.state_dict(),
             'episode': self.episode_counter,
             'step': self.learn_step_counter,
         }
         torch.save(save_dict, os.path.join(save_path, "policy" + str(self.learn_step_counter) + ".pth"))
-        if self.value_type is not None:
+        if self.value_type is not None and not self.using_lbfgs_for_V:
             save_dict = {
-                'model': self.value.module.state_dict(),
+                'model': self.value.state_dict(),
                 'optimizer': self.v_optimizer.state_dict(),
             }
             torch.save(save_dict, os.path.join(save_path, "value" + str(self.learn_step_counter) + ".pth"))
@@ -180,7 +192,7 @@ class PG(Agent):
         self.episode_counter = checkpoint['episode']
         print("loaded checkpoint %s" % (policy_name))
 
-        if self.value_type is not None:
+        if self.value_type is not None and not self.using_lbfgs_for_V:
             value_name = os.path.join(load_path, "value" + str(load_point) + ".pth")
             print("loading checkpoint %s" % (value_name))
             checkpoint = torch.load(value_name)
@@ -198,7 +210,7 @@ class PG_Gaussian(PG):
         self.action_bounds = config['action_bounds']
         self.policy = FCPG_Gaussian(self.n_states,  # input dim
                                    self.n_action_dims,  # output dim
-                                   sigma=2,
+                                   sigma=config['init_noise'],
                                    outactive=config['out_act_func'],
                                    outscaler=self.action_bounds,
                                    n_hiddens=config['hidden_layers'],
@@ -209,22 +221,40 @@ class PG_Gaussian(PG):
         else:
             self.optimizer = config['optimizer'](self.policy.parameters(), lr=self.lr)
 
+        self.mu = torch.FloatTensor(1)
+        self.sigma = torch.FloatTensor(1)
+        if self.using_batch:
+            self.mu_batch = torch.FloatTensor(1)
+            self.sigma_batch = torch.FloatTensor(1)
+
+    def cuda(self):
+        PG.cuda(self)
+        self.mu = self.mu.cuda()
+        self.sigma = self.sigma.cuda()
+        if self.using_batch:
+            self.mu_batch = self.mu_batch.cuda()
+            self.sigma_batch = self.sigma_batch.cuda()
+
     def choose_action(self, s):
         self.policy.eval()
         s = Variable(torch.Tensor(s))
+        if self.use_cuda:
+            s = s.cuda()
         mu,sigma = self.policy(s)
+        mu = mu.detach()
+        sigma = sigma.detach()
         self.policy.train()
         a = torch.normal(mu,sigma)
-        return np.array(a.data), np.array(mu.data), np.array(sigma.data)
+        return a.cpu().numpy(), mu.cpu().numpy(), sigma.cpu().numpy()
 
     def compute_logp(self,mu,sigma,a):
         if a.dim() == 1:
             return torch.sum(torch.pow((a - mu),2.) / (- 2. * sigma)) - \
-                    self.n_action_dims / 2. * torch.log(Variable(torch.Tensor([2. * 3.14159]))) - \
+                    self.n_action_dims / 2. * torch.log(torch.FloatTensor([2. * 3.14159]).type_as(mu)) - \
                     1. / 2. * torch.sum(torch.log(sigma))
         elif a.dim() == 2:
-            return torch.sum(torch.pow((a - mu), 2.) / (- 2. * sigma),1) - \
-                    self.n_action_dims / 2. * torch.log(Variable(torch.Tensor([2. * 3.14159]))) - \
+            return  torch.sum(torch.pow((a - mu), 2.) / (- 2. * sigma),1) - \
+                    self.n_action_dims / 2. * torch.log(torch.FloatTensor([2. * 3.14159]).type_as(mu)) - \
                     1. / 2. * torch.sum(torch.log(sigma),1)
         else:
             RuntimeError("a must be a 1-D or 2-D Tensor or Variable")
@@ -261,20 +291,20 @@ class PG_Gaussian(PG):
     def sample_batch(self, batch_size = None):
         if batch_size is not None:
             batch, self.sample_index = Agent.sample_batch(self, batch_size)
-            self.s_batch = torch.Tensor(batch['state'])
-            self.a_batch = torch.Tensor(batch['action'])
-            self.mu_batch = torch.Tensor(batch['mu'])
-            self.sigma_batch = torch.Tensor(batch['sigma'])
-            self.r_batch = torch.Tensor(batch['reward'])
-            self.done_batch = torch.Tensor(batch['done'])
+            self.r_batch = self.r_batch.resize_(batch['reward'].shape).copy_(torch.Tensor(batch['reward']))
+            self.done_batch = self.done_batch.resize_(batch['done'].shape).copy_(torch.Tensor(batch['done']))
+            self.a_batch = self.a_batch.resize_(batch['action'].shape).copy_(torch.Tensor(batch['action']))
+            self.s_batch = self.s_batch.resize_(batch['state'].shape).copy_(torch.Tensor(batch['state']))
+            self.mu_batch = self.mu_batch.resize_(batch['mu'].shape).copy_(torch.Tensor(batch['mu']))
+            self.sigma_batch = self.sigma_batch.resize_(batch['sigma'].shape).copy_(torch.Tensor(batch['sigma']))
         else:
-            batch, self.sample_index = Agent.sample_batch(self, batch_size)
-            self.s = torch.Tensor(batch['state'])
-            self.a = torch.Tensor(batch['action'])
-            self.mu = torch.Tensor(batch['mu'])
-            self.sigma = torch.Tensor(batch['sigma'])
-            self.r = torch.Tensor(batch['reward'])
-            self.done = torch.Tensor(batch['done'])
+            batch, self.sample_index = Agent.sample_batch(self)
+            self.r = self.r.resize_(batch['reward'].shape).copy_(torch.Tensor(batch['reward']))
+            self.done = self.done.resize_(batch['done'].shape).copy_(torch.Tensor(batch['done']))
+            self.a = self.a.resize_(batch['action'].shape).copy_(torch.Tensor(batch['action']))
+            self.s = self.s.resize_(batch['state'].shape).copy_(torch.Tensor(batch['state']))
+            self.mu = self.mu.resize_(batch['mu'].shape).copy_(torch.Tensor(batch['mu']))
+            self.sigma = self.sigma.resize_(batch['sigma'].shape).copy_(torch.Tensor(batch['sigma']))
 
 class PG_Softmax(PG):
     def __init__(self,hyperparams):
@@ -296,13 +326,25 @@ class PG_Softmax(PG):
         else:
             self.optimizer = config['optimizer'](self.policy.parameters(), lr=self.lr)
 
+        self.distri = torch.FloatTensor(1)
+        if self.using_batch:
+            self.distri_batch = torch.FloatTensor(1)
+
+    def cuda(self):
+        PG.cuda(self)
+        self.distri = self.distri.cuda()
+        if self.using_batch:
+            self.distri_batch = self.distri_batch.cuda()
+
     def choose_action(self, s):
         self.policy.eval()
         s = Variable(torch.Tensor(s))
-        distri = self.policy(s)
+        if self.use_cuda:
+            s = s.cuda()
+        distri = self.policy(s).detach()
         self.policy.train()
-        a = np.random.choice(distri.data.shape[0], p = np.array(distri.data))
-        return a, np.array(distri.data)
+        a = np.random.choice(distri.shape[0], p = distri.cpu().numpy())
+        return a, distri.cpu().numpy()
 
     def compute_logp(self,distri,a):
         if distri.dim() == 1:
@@ -342,15 +384,15 @@ class PG_Softmax(PG):
     def sample_batch(self, batch_size = None):
         if batch_size is not None:
             batch, self.sample_index = Agent.sample_batch(self, batch_size)
-            self.s_batch = torch.Tensor(batch['state'])
-            self.a_batch = torch.Tensor(batch['action'])
-            self.distri_batch = torch.Tensor(batch['distr'])
-            self.r_batch = torch.Tensor(batch['reward'])
-            self.done_batch = torch.Tensor(batch['done'])
+            self.r_batch = self.r_batch.resize_(batch['reward'].shape).copy_(torch.Tensor(batch['reward']))
+            self.done_batch = self.done_batch.resize_(batch['done'].shape).copy_(torch.Tensor(batch['done']))
+            self.a_batch = self.a_batch.resize_(batch['action'].shape).copy_(torch.Tensor(batch['action']))
+            self.s_batch = self.s_batch.resize_(batch['state'].shape).copy_(torch.Tensor(batch['state']))
+            self.distri_batch = self.distri_batch.resize_(batch['distr'].shape).copy_(torch.Tensor(batch['distr']))
         else:
-            batch, self.sample_index = Agent.sample_batch(self, batch_size)
-            self.s = torch.Tensor(batch['state'])
-            self.a = torch.Tensor(batch['action'])
-            self.distri = torch.Tensor(batch['distr'])
-            self.r = torch.Tensor(batch['reward'])
-            self.done = torch.Tensor(batch['done'])
+            batch, self.sample_index = Agent.sample_batch(self)
+            self.r = self.r.resize_(batch['reward'].shape).copy_(torch.Tensor(batch['reward']))
+            self.done = self.done.resize_(batch['done'].shape).copy_(torch.Tensor(batch['done']))
+            self.a = self.a.resize_(batch['action'].shape).copy_(torch.Tensor(batch['action']))
+            self.s = self.s.resize_(batch['state'].shape).copy_(torch.Tensor(batch['state']))
+            self.distri = self.distri.resize_(batch['distr'].shape).copy_(torch.Tensor(batch['distr']))

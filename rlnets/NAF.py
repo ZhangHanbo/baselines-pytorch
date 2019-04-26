@@ -32,6 +32,13 @@ class FCNAF(MLP):
         self.diag_mask = Variable(torch.diag(torch.diag(
             torch.ones(self.n_actions, self.n_actions))))
 
+    def cuda(self, device=None):
+        if self.action_scaler is not None:
+            self.action_scaler = self.action_scaler.cuda()
+        self.tril_mask = self.tril_mask.cuda()
+        self.diag_mask = self.diag_mask.cuda()
+        return self._apply(lambda t: t.cuda(device))
+
     def forward(self,x):
         x = MLP.forward(self, x)
         # x is a batch

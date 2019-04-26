@@ -27,9 +27,23 @@ class Agent:
         self.mom = config['mom']
         self.gamma = config['reward_decay']
         self.memory_size = config['memory_size']
+
+        self.max_num_episode = config['num_episode']
+        self.max_num_step = config['num_step']
+        self.snapshot_episode = config['snapshot_episode']
+        self.update_num_per_step = config['update_num_per_step']
+        self.hindsight_replay = config['hindsight_replay']
+
         self.learn_step_counter = 0
         self.episode_counter = 0
         self.cost_his = []
+
+        self.use_cuda = False
+        self.r = torch.FloatTensor(1)
+        self.done = torch.FloatTensor(1)
+        self.s_ = torch.FloatTensor(1)
+        self.s = torch.FloatTensor(1)
+        self.a = torch.FloatTensor(1)
 
     @abc.abstractmethod
     def choose_action(self, s):
@@ -53,6 +67,14 @@ class Agent:
     def hard_update(self, target, eval):
         target.load_state_dict(eval.state_dict())
         # print('\ntarget_params_replaced\n')
+
+    def cuda(self):
+        self.use_cuda = True
+        self.r = self.r.cuda()
+        self.a = self.a.cuda()
+        self.s = self.s.cuda()
+        self.s_ = self.s_.cuda()
+        self.done = self.done.cuda()
 
     @abc.abstractmethod
     def save_model(self, save_path):
