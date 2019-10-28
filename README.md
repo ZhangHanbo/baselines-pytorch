@@ -28,8 +28,8 @@ Please make sure that the versions of all the requirements match the ones above,
 
 ## Implemented Algorithms
 
-Alg. | SOTA?| 
--|-|-
+|Alg. | SOTA?|
+|  ----  | ----  |
 Deep Q-Learning (DQN) | × 
 Double DQN | × 
 Dueling DQN| × 
