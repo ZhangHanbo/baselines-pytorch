@@ -33,14 +33,14 @@ Please make sure that the versions of all the requirements match the ones above,
 Deep Q-Learning (DQN) | × 
 Double DQN | × 
 Dueling DQN| × 
-Normalized Advantage Function with DQN | √
-Deep  Deterministic Policy Gradient (DDPG) | √
-Twin Delayed DDPG | √
+Normalized Advantage Function with DQN | ✔️
+Deep  Deterministic Policy Gradient (DDPG) | ✔️
+Twin Delayed DDPG | ✔️
 Vanilla Policy Gradient| -
 Natual Policy Gradient | -
-Trust Region Policy Optimization | √
-Proximal Policy Optimization | √
-Hindsight Trust Region Policy Gradient | √
+Trust Region Policy Optimization | ✔️
+Proximal Policy Optimization | ✔️
+Hindsight Trust Region Policy Gradient | ✔️
 
 ### Examples
 For running continuous envs (e.g. FetchPush-v1) with HTRPO algorithm:
