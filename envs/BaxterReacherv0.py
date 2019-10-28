@@ -32,6 +32,7 @@ from baxter_core_msgs.srv import (
 )
 from baxter_core_msgs.msg import JointCommand
 from configs import BAXTER
+from utils.rms import RunningMeanStd
 
 from gym.spaces import Box
 
@@ -72,7 +73,7 @@ def delete_gazebo_models(model_name):
     except rospy.ServiceException, e:
         rospy.loginfo("Delete Model service call failed: {0}".format(e))
 
-class Baxter(object):
+class BaxterReacherv0(object):
     """
     All communication between the algorithms and ROS is done through
     this class.
@@ -106,19 +107,33 @@ class Baxter(object):
         self._pub_rate.publish(self.RATE)
         self.rate = rospy.Rate(self.RATE)
 
-        self._max_time_step = 200
+        self._max_time_step = 50
         self._step_counter = 0
-        self._done = False
 
         self.action_norm_factor = REAL_ACT_SPACE_HIGH
 
         # to control the orientation, we set 3 points on the gripper frame
         self.ee_points = np.array([[0., -0.04, 0.07], [0., 0.04, 0.07], [0., 0., 0.]])
 
-        self.observation_space = Box(-np.inf * np.ones(30), np.inf * np.ones(30))
+        self.observation_space = Box(-np.inf * np.ones(10), np.inf * np.ones(10))
         self.action_space = Box(-np.ones(7,dtype=np.float32), np.ones(7,dtype=np.float32))
 
         self.indicator_flag = False
+
+        self.num_envs = 1
+        self.clipob = 10
+        self.cliprew = 10
+
+        self.ob_rms = RunningMeanStd(shape=self.observation_space.shape)
+        self.ret_rms = RunningMeanStd(shape=())
+        self.ret = np.zeros(1)
+        self.eprew = np.zeros(1)
+        self.gamma = BAXTER["gamma"]
+        self.epsilon = BAXTER["epsilon"]
+        self._done = np.array(False).repeat(self.eprew.shape)
+        self.prev_dones = np.array(False).repeat(self.eprew.shape)
+        self._reward = np.zeros(1, dtype=np.float32)
+        self._obs = np.zeros((1,)+self.observation_space.shape, dtype=np.float32)
 
     def norm_action(self, joint_vel):
         # to [-1., 1.]
@@ -150,7 +165,7 @@ class Baxter(object):
         self._step_counter = 0
 
         self._states = self.get_state()
-        self._obs = np.hstack([self._states['JOINT_ANGLES'],
+        self._obs[0] = np.hstack([self._states['JOINT_ANGLES'],
                                # np.cos(self._states['JOINT_ANGLES']),
                                # np.sin(self._states['JOINT_ANGLES']),
                                # self._states['JOINT_VELOCITIES'],
@@ -160,14 +175,19 @@ class Baxter(object):
         # model_path = os.path.join(rospkg.RosPack().get_path('baxter_rl'), "models", "block", "model.sdf")
         # load_gazebo_model(model_path, "indicator")
         self.indicator_flag = True
-        return self._obs
+        self._done[0] = False
+        return self._obfilt(self._obs)
 
     def step(self, action):
         """
         :param action: 7-d numpy array that defines joint velocities or torques.
         :return: observation (including 7 joint angles, velocities, targets, targets - endpoints)
         """
+        if self.prev_dones[0]:
+            self.reset()
+            self.eprew[0] = 0.
         self._pub_rate.publish(self.RATE)
+        action = action.squeeze()
         action = self.unnorm_action(action)
         if self.using_left_arm:
             self._action = dict(zip(LEFT_JOINT_NAMES, action))
@@ -176,7 +196,7 @@ class Baxter(object):
             self._action = dict(zip(RIGHT_JOINT_NAMES, action))
             self._rlimb.set_joint_velocities(self._action)
         self._states = self.get_state()
-        self._obs = np.hstack([self._states['JOINT_ANGLES'],
+        self._obs[0] = np.hstack([self._states['JOINT_ANGLES'],
                                #np.cos(self._states['JOINT_ANGLES']),
                                #np.sin(self._states['JOINT_ANGLES']),
                                #self._states['JOINT_VELOCITIES'],
@@ -187,14 +207,32 @@ class Baxter(object):
         # self._reward_a = - np.square(action).sum() / 10.
         self._reward_s_log = - np.log(np.linalg.norm(self._states['END_EFFECTOR_POSITIONS'] - self.goal) + 1e-6)
         # self._reward = self._reward_a + self._reward_s + self._reward_s_log
-        self._reward = self._reward_s + self._reward_s_log
+        self._reward[0] = self._reward_s + self._reward_s_log
+        self.eprew += self._reward
+
+        self.ret = self.ret * self.gamma + self._reward
+        if self.ret_rms:
+            self.ret_rms.update(self.ret)
+            # r_out = r / sigma_ret (within [-cliprew, cliprew]) WHY????
+            self._reward = np.clip(self._reward / np.sqrt(self.ret_rms.var + self.epsilon), -self.cliprew, self.cliprew)
+
         self._step_counter += 1
         if self._step_counter >= self._max_time_step:
-            self._done = True
+            self._done[0] = True
+            self.prev_dones = self._done
 
         ########### IMPORTANT FOR DEFINATION OF dt !!!! ###########
         self.rate.sleep()
-        return self._obs, self._reward, self._done, None
+        return self._obfilt(self._obs), self._reward, self._done, {}
+
+    def _obfilt(self, obs):
+        # Normalize obs. (Minus mean and divided by sqrt(var).)
+        if self.ob_rms:
+            self.ob_rms.update(obs)
+            obs = np.clip((obs - self.ob_rms.mean) / np.sqrt(self.ob_rms.var + self.epsilon), -self.clipob, self.clipob)
+            return obs
+        else:
+            return obs
 
     def get_state(self):
         """Retrieves the state of the point mass"""

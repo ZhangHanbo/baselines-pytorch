@@ -3,7 +3,7 @@ import numpy as np
 import basenets
 from agents.Agent import Agent
 import copy
-from config import DQN_CONFIG
+from .config import DQN_CONFIG
 from rlnets.DQN import FCDQN
 from utils import databuffer
 import os

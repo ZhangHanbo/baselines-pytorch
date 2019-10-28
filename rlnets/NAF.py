@@ -8,7 +8,7 @@ class FCNAF(MLP):
     def __init__(self,
                  n_inputfeats,    # input dim
                  n_actions,   # action dim
-                 n_hiddens = [30],  # hidden unit number list
+                 n_hiddens = [64, 64],  # hidden unit number list
                  nonlinear = F.tanh,
                  usebn = False,
                  action_active = None,

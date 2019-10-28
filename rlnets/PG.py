@@ -14,7 +14,9 @@ class FCPG_Gaussian(MLP):
                  nonlinear = F.tanh,
                  usebn = False,
                  outactive = None,
-                 outscaler = None
+                 outscaler = None,
+                 initializer = "orthogonal",
+                 initializer_param = {"gain":np.sqrt(2), "last_gain": 0.1}
                  ):
         self.n_actions = n_actions
         super(FCPG_Gaussian, self).__init__(
@@ -24,16 +26,18 @@ class FCPG_Gaussian(MLP):
                  nonlinear,
                  usebn,
                  outactive,
-                 outscaler
+                 outscaler,
+                 initializer,
+                 initializer_param=initializer_param,
                  )
-        self.sigma = nn.Parameter(sigma * torch.ones(n_actions))
+        self.logstd = nn.Parameter(torch.log(sigma * torch.ones(n_actions) + 1e-8))
 
     def forward(self,x):
         x = MLP.forward(self, x)
-        return x, torch.pow(self.sigma.expand_as(x),2)
+        return x, self.logstd.expand_as(x), torch.exp(self.logstd).expand_as(x)
 
     def cuda(self, device = None):
-        self.sigma.cuda()
+        self.logstd.cuda()
         return self._apply(lambda t: t.cuda(device))
 
 class FCPG_Softmax(MLP):
@@ -44,7 +48,9 @@ class FCPG_Softmax(MLP):
                  nonlinear = F.tanh,
                  usebn = False,
                  outactive = F.softmax,
-                 outscaler = None
+                 outscaler = None,
+                 initializer = "orthogonal",
+                 initializer_param = {"gain":np.sqrt(2), "last_gain": 0.1}
                  ):
         self.n_actions = n_actions
         super(FCPG_Softmax, self).__init__(
@@ -54,11 +60,10 @@ class FCPG_Softmax(MLP):
                  nonlinear,
                  usebn,
                  outactive,
-                 outscaler
+                 outscaler,
+                 initializer,
+                 initializer_param=initializer_param,
                  )
-        for i,v in enumerate(self.layers):
-            torch.nn.init.normal(v.weight, mean = 0, std = 0.3)
-            torch.nn.init.constant(v.bias, 0.1)
 
 # TODO: support multi-layer value function in which action is concat before the final layer
 class FCVALUE(MLP):
@@ -68,7 +73,9 @@ class FCVALUE(MLP):
                  nonlinear = F.tanh,
                  usebn = False,
                  outactive = None,
-                 outscaler = None
+                 outscaler = None,
+                 initializer="orthogonal",
+                 initializer_param={"gain":np.sqrt(2), "last_gain": 0.1}
                  ):
         super(FCVALUE, self).__init__(
                  n_inputfeats,    # input dim
@@ -77,6 +84,8 @@ class FCVALUE(MLP):
                  nonlinear,
                  usebn,
                  outactive,
-                 outscaler
+                 outscaler,
+                 initializer,
+                 initializer_param=initializer_param,
                  )
 

@@ -8,7 +8,7 @@ import basenets
 from agents.DQN import DQN
 from rlnets import FCDQN
 import copy
-from config import DQN_CONFIG
+from .config import DQN_CONFIG
 
 class DDQN(DQN):
     def __init__(self,hyperparams):

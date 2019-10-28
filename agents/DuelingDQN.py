@@ -1,14 +1,7 @@
-import torch
-from torch import nn
-from torch.autograd import Variable
-import torch.nn.functional as F
-from torch import optim
-import numpy as np
-import basenets
 from agents.DQN import DQN
 from agents.DDQN import DDQN
 import copy
-from config import DQN_CONFIG
+from .config import DQN_CONFIG
 from rlnets import FCDuelingDQN
 
 class DuelingDQN(DDQN):

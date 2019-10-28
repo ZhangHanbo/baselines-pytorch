@@ -1,4 +1,4 @@
-# father class for all agent
+# parant class for all agent
 import torch
 from torch import nn
 from torch.autograd import Variable
@@ -8,8 +8,8 @@ import numpy as np
 import basenets
 import abc
 import copy
-from config import AGENT_CONFIG
-from utils import databuffer, databuffer_PG_gaussian
+from .config import AGENT_CONFIG
+from collections import deque
 
 class Agent:
     __metaclass__ = abc.ABCMeta
@@ -21,32 +21,37 @@ class Agent:
         # self.n_actions = 0
         if 'n_actions' in config.keys():
             self.n_actions = config['n_actions']
-
         self.n_action_dims = config['n_action_dims']
         self.lr = config['lr']
         self.mom = config['mom']
         self.gamma = config['reward_decay']
         self.memory_size = config['memory_size']
+        self.hidden_layers = config['hidden_layers']
+        self.act_func = config['act_func']
+        self.out_act_func = config['out_act_func']
+        self.dicrete_action = config['dicrete_action']
+        self.using_bn = config['using_bn']
 
-        self.max_num_episode = config['num_episode']
-        self.max_num_step = config['num_step']
-        self.snapshot_episode = config['snapshot_episode']
-        self.update_num_per_step = config['update_num_per_step']
-        self.hindsight_replay = config['hindsight_replay']
+        self.norm_ob = None
 
         self.learn_step_counter = 0
         self.episode_counter = 0
+
+        # used in HTRPO. In other algorithms, it will be set to 0.
+        self.max_steps = 0
+
         self.cost_his = []
 
         self.use_cuda = False
-        self.r = torch.FloatTensor(1)
-        self.done = torch.FloatTensor(1)
-        self.s_ = torch.FloatTensor(1)
-        self.s = torch.FloatTensor(1)
-        self.a = torch.FloatTensor(1)
+        self.r = torch.Tensor(1)
+        self.done = torch.Tensor(1)
+        self.s_ = torch.Tensor(1)
+        self.s = torch.Tensor(1)
+        self.a = torch.Tensor(1)
+        self.logpac_old = torch.Tensor(1)
 
     @abc.abstractmethod
-    def choose_action(self, s):
+    def choose_action(self, s, greedy = False):
         raise NotImplementedError("Must be implemented in subclass.")
 
     @abc.abstractmethod
@@ -75,6 +80,7 @@ class Agent:
         self.s = self.s.cuda()
         self.s_ = self.s_.cuda()
         self.done = self.done.cuda()
+        self.logpac_old = self.logpac_old.cuda()
 
     @abc.abstractmethod
     def save_model(self, save_path):
@@ -84,3 +90,33 @@ class Agent:
     def load_model(self, load_path, load_point):
         raise NotImplementedError("Must be implemented in subclass.")
 
+    def eval_brain(self, env, render=True, eval_num=None):
+        eprew_list = deque(maxlen=eval_num)
+        # success_history = deque(maxlen=eval_num)
+        self.policy = self.policy.eval()
+        if self.value is not None:
+            self.value = self.value.eval()
+        observation = env.reset()
+        while (len(eprew_list) < eval_num):
+            if render:
+                env.render()
+            if isinstance(observation, dict):
+                observation = torch.cat((torch.Tensor(observation['observation']),
+                                          torch.Tensor(observation['desired_goal'])), dim=-1)
+            else:
+                observation = torch.Tensor(observation)
+            if not self.dicrete_action:
+                actions, _, _, _ = self.choose_action(observation, greedy=True)
+            else:
+                actions, _ = self.choose_action(observation, greedy=True)
+            actions = actions.cpu().numpy()
+            observation, rewards, dones, infos = env.step(actions)
+            for e, info in enumerate(infos):
+                if dones[e]:
+                    eprew_list.append(info.get('episode')['r'] + self.max_steps)
+                    # success_history.append(info.get('is_success'))
+                    for k in observation.keys():
+                        observation[k][e] = info.get('new_obs')[k]
+
+        # return eprew_list, success_history
+        return eprew_list,

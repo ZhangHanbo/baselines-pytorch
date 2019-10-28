@@ -1,2 +1,1 @@
-from databuffer import *
-import hindsight
+from .databuffer import *
