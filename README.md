@@ -2,13 +2,13 @@
 
 ## Introduction
 
-This is a deep reinforcement learning package including main-stream RL algorithms such as DDPG, TRPO, PPO, etc. It will be updated continuously to contain up-to-date main-stream RL algorithms. It aims to help all the RL newers and researchers more easily understand and utilize RL algorithms in their own research. All the included algorithms will be implemented so that they can achieve the claimed performance in the corresponding papers. By now, the following algorithms are nearly-SOTA:
+This is a deep reinforcement learning package including main-stream RL algorithms such as DDPG, TRPO, PPO, etc. It will be updated continuously to cover more up-to-date main-stream RL algorithms. It aims to help all the RL beginners and researchers understand and utilize RL algorithms more easily in their own research. All the included algorithms will be implemented so that they can achieve the claimed performance in the corresponding papers. By now, the following algorithms are nearly-SOTA:
 
 **DDPG, NAF, TD3, TRPO, PPO** 
 
-<font size=2 color=grey>**The Definition of "nearly-SOTA"**: *I don't have enough time to test all the envs included in the corresponding papers and provide the comparison with the baselines. I just test my implemented version in one of the envs (most probable the Hopper-v2) and it achieved the same or higher performance compared with the baseline.*</font>
+<font size=2 color=grey>**The Definition of "nearly-SOTA"**: *I don't have enough time to test all the envs included in the corresponding papers and provide the comparison with baselines. I just test my implemented version in one of the envs (most probable the Hopper-v2) and it achieves the same or higher performance compared with the baseline.*</font>
 
-It also includes our newly proposed algorithm **Hindsight Trust Region Policy Optimization**. A demo video of **Hindsight Trust Region Policy Optimization** is in demo/ which shows how our algorithm works. **Hindsight Trust Region Policy Optimization** has already been submitted to ICLR 2020.
+It also includes our newly proposed algorithm **Hindsight Trust Region Policy Optimization**. A demo video of **Hindsight Trust Region Policy Optimization** is in demo/ and it shows how our algorithm works. **Hindsight Trust Region Policy Optimization** has already been submitted to ICLR 2020.
 
 ### Requirements
 
@@ -60,11 +60,11 @@ python main.py --alg HTRPO --env FlipBit8 --unnormobs --num_steps 50000 --num_ev
 
 **Note** for users: 
 
-1. DDPG, TD3 and NAF should open the switches named "unnormobs" and "unnormret" during training. The normalization is not optimized for these 3 methods by now and with observation normalization or return normalization, the performance will be much lower than the baselines.
+1. DDPG, TD3 and NAF should turn on the switches named "unnormobs" and "unnormret" during training. The normalization is not optimized for these 3 methods by now and hense, with observation normalization or return normalization, the performance will be much lower than the baselines.
 
 2. We propose HTRPO for sparse reward reinforcement learning, and as baselines, TRPO and HPG for sparse reward are also implemented. To run HTRPO, you need to follow the above instruction. To run HPG, you only need to modify the hyperparameter "using_hpg" to "True" in the corresponding config file (e.g. for FetchPush-v1, the config file is configs/HTRPO_FetchPushv1.py). To run HTRPO, you need to modify the hyperparameter "sampled_goal_num" to 0 and "using_original_data" to "True", which means that the policy will be trained using only the original collected data without any modification.
 
-3. All the experimental results compared with baselines will be continuous updated when I have time.
+3. All the experimental results compared with baselines will be continuously updated when I have time.
 
 ### Environment List
 
