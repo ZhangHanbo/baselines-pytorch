@@ -3,6 +3,10 @@ from .vecenv import DummyVecEnv, VecNormalize, VecFrameStack
 from collections import defaultdict
 import gym
 from gym.wrappers import FlattenDictWrapper
+try:
+    import robosuite as robst
+except Exception as e:
+    "Could not find package robosuite. All relevant environments cannot be used."
 import multiprocessing
 import sys
 import re
@@ -18,10 +22,15 @@ try:
 except ImportError:
     MPI = None
 
-HER_ENV_LIST = {"FlipBit8", "FlipBit16", "EmptyMaze", "FourRoomMaze", "FetchPushDiscrete",
-                "FetchReachDiscrete", "FetchSlideDiscrete"}
-my_own_envs = ["BaxterReacher-v0", "FlipBit8", "FlipBit16", "EmptyMaze", "FourRoomMaze",
-               "FetchPushDiscrete", "FetchReachDiscrete", "FetchSlideDiscrete", "AntReacher", "Reacher"]
+HER_ENV_LIST = {"FlipBit8", "FlipBit16", "FlipBit32", "FlipBit48", "EmptyMaze", "FourRoomMaze", "FetchPushDiscrete",
+                "FetchReachDiscrete", "FetchSlideDiscrete", "MsPacman"}
+my_own_envs = {"BaxterReacher-v0", "FlipBit8", "FlipBit16", "FlipBit32", "FlipBit48", "EmptyMaze", "FourRoomMaze",
+               "FetchPushDiscrete", "FetchReachDiscrete", "FetchSlideDiscrete", "AntReacher", "Reacher",
+               "MsPacman"}
+robotsuite_envs = {"BaxterLift", "BaxterPegInHole", "SawyerLift", "SawyerNutAssembly", "SawyerNutAssemblyRound",
+                   "SawyerNutAssemblySingle", "SawyerNutAssemblySquare", "SawyerPickPlace", "SawyerPickPlaceBread",
+                   "SawyerPickPlaceCan", "SawyerPickPlaceCereal", "SawyerPickPlaceMilk", "SawyerPickPlaceSingle",
+                   "SawyerStack"}
 
 _game_envs = defaultdict(set)
 for env in gym.envs.registry.all():
@@ -34,6 +43,8 @@ def get_env_type(args):
 
     if env_id in my_own_envs:
         return "myown", env_id
+    elif env_id in robotsuite_envs:
+        return "robotsuite", env_id
 
     # Re-parse the gym registry, since we could have new envs since last time.
     for env in gym.envs.registry.all():
@@ -77,9 +88,10 @@ def build_env(args):
             env = VecFrameStack(env, frame_stack_size)
     else:
         flatten_dict_observations = alg not in {'HTRPO'}
-        env = make_vec_env(env_id, env_type, args.num_envs or 1, seed, flatten_dict_observations=flatten_dict_observations)
+        env = make_vec_env(env_id, env_type, args.num_envs or 1, seed,
+                           flatten_dict_observations=flatten_dict_observations, render = args.render)
 
-        if env_type in {'mujoco'} :
+        if env_type in {'mujoco', 'robotics', 'robotsuite'} :
            env = VecNormalize(env, ob=not args.unnormobs, ret=not args.unnormret, act=not args.unnormact)
 
     return env, env_type, env_id
@@ -87,7 +99,8 @@ def build_env(args):
 def make_vec_env(env_id, env_type, num_env, seed,
                  wrapper_kwargs=None,
                  start_index=0,
-                 flatten_dict_observations=True):
+                 flatten_dict_observations=True,
+                 render = False):
     """
     Create a wrapped, monitored SubprocVecEnv for Atari and MuJoCo.
     """
@@ -103,6 +116,7 @@ def make_vec_env(env_id, env_type, num_env, seed,
             seed=seed,
             wrapper_kwargs=wrapper_kwargs,
             flatten_dict_observations=flatten_dict_observations,
+            render = render
         )
 
     set_global_seeds(seed)
@@ -113,12 +127,15 @@ def make_vec_env(env_id, env_type, num_env, seed,
         return DummyVecEnv([make_thunk(start_index)])
 
 
-def make_env(env_id, env_type, subrank=0, seed=None, wrapper_kwargs=None, flatten_dict_observations = True):
+def make_env(env_id, env_type, subrank=0, seed=None, wrapper_kwargs=None,
+             flatten_dict_observations = True, render = False):
     wrapper_kwargs = wrapper_kwargs or {}
     if env_type == 'atari':
         env = make_atari(env_id)
     elif env_type == 'myown':
         env = eval("envs." + "".join(env_id.split("-")) + "()")
+    elif env_type == 'robotsuite':
+        env = eval("envs." + "".join(env_id.split("-")) + "(render = render)")
     else:
         env = gym.make(env_id)
         env.max_episode_steps = env.spec.max_episode_steps
@@ -128,7 +145,7 @@ def make_env(env_id, env_type, subrank=0, seed=None, wrapper_kwargs=None, flatte
         env = gym.wrappers.FlattenDictWrapper(env, dict_keys=list(keys))
 
     env.seed(seed + subrank if seed is not None else None)
-    if env_id not in my_own_envs:
+    if env_id not in my_own_envs and env_id not in robotsuite_envs:
         env = Monitor(env, allow_early_resets=True)
 
     if env_type == 'atari':

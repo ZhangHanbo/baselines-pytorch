@@ -9,7 +9,7 @@ from agents.Agent import Agent
 from torch.nn.utils.convert_parameters import vector_to_parameters, parameters_to_vector
 import copy
 from .config import PG_CONFIG
-from rlnets import FCPG_Gaussian, FCPG_Softmax, FCVALUE
+from rlnets import FCPG_Gaussian, FCPG_Softmax, FCVALUE, ConvPG_Softmax
 from utils import databuffer, databuffer_PG_gaussian, databuffer_PG_softmax
 import abc
 import os
@@ -27,10 +27,13 @@ class PG(Agent):
         self.optimizer_type = config['optimizer']
         self.entropy_weight = config['entropy_weight']
         self.value_type = config['value_type']
+        self.policy_type = config['policy_type']
         self.using_KL_estimation = config['using_KL_estimation']
         self.policy_ent = 0.
         self.policy_loss = 0.
         self.value_loss = 0.
+
+        # initialize value approximator
         if self.value_type is not None:
             # initialize value network architecture
             if self.value_type == 'FC':
@@ -88,10 +91,6 @@ class PG(Agent):
     def mean_kl_divergence(self, inds = None, model= None):
         raise NotImplementedError("Must be implemented in subclass.")
 
-    @abc.abstractmethod
-    def mean_kl_divergence_esti(self, inds=None, model=None):
-        raise NotImplementedError("Must be implemented in subclass.")
-
     def estimate_value(self):
         # undone but the final state.
         fake_done = torch.nonzero(self.done.squeeze() == 2).squeeze(-1)
@@ -101,7 +100,7 @@ class PG(Agent):
         prev_return = 0
         # using value approximator
         if self.value_type is not None:
-            values = self.value(self.s)
+            values = self.value(self.s, other_data = self.other_data)
             delta = torch.zeros(self.r.size(0), 1).type_as(self.s)
             advantages = torch.zeros(self.r.size(0), 1).type_as(self.s)
 
@@ -116,7 +115,9 @@ class PG(Agent):
 
             delta[e_points] = self.r[e_points] - values[e_points]
             if fake_done.numel() > 0:
-                delta[fake_done] += self.value(self.s_[fake_done]).resize_as(delta[fake_done])
+                delta[fake_done] += self.value(self.s_[fake_done],
+                                               other_data = self.other_data[fake_done]
+                                               if self.other_data is not None else None).resize_as(delta[fake_done])
             advantages[e_points] = delta[e_points]
             returns[e_points] = self.r[e_points]
             for i in range(1, max_len):
@@ -159,7 +160,7 @@ class PG(Agent):
         value.zero_grad()
         loss_fn = self.loss_func_v
         def V_closure():
-            predicted = value(self.s[inds]).squeeze()
+            predicted = value(self.s[inds], other_data = self.other_data[inds] if self.other_data is not None else None).squeeze()
             loss = loss_fn(predicted, V_target)
             self.value_loss += loss.item()
             optimizer.zero_grad()
@@ -183,7 +184,7 @@ class PG(Agent):
         if self.using_lbfgs_for_V:
             self.optim_value_lbfgs(V_target, inds)
         else:
-            V_eval = self.value(self.s[inds]).squeeze()
+            V_eval = self.value(self.s[inds], other_data = self.other_data[inds] if self.other_data is not None else None).squeeze()
             self.loss_v = self.loss_func_v(V_eval, V_target)
             self.value_loss = self.loss_v.item()
             self.value.zero_grad()
@@ -253,25 +254,36 @@ class PG_Gaussian(PG):
         config = copy.deepcopy(PG_CONFIG)
         config.update(hyperparams)
         super(PG_Gaussian, self).__init__(config)
-        self.action_bounds = config['action_bounds']
-        self.init_noise = config['init_noise']
+
+        # initialize buffer
         if "memory_size" not in config.keys():
             config['memory_size'] = self.memory_size
         self.memory = databuffer_PG_gaussian(config)
-        self.policy = FCPG_Gaussian(
-            self.n_states['n_s'] + self.n_states['n_g'] if isinstance(self.n_states, dict) else self.n_states,
-            # input dim
-            self.n_action_dims,  # output dim
-            sigma=self.init_noise,
-            outactive=self.out_act_func,
-            outscaler=self.action_bounds,
-            n_hiddens=self.hidden_layers,
-            nonlinear=self.act_func,
-            usebn=self.using_bn)
+
+        # initialize policy net
+        self.action_bounds = config['action_bounds']
+        self.init_noise = config['init_noise']
+        if self.policy_type == 'FC':
+            self.policy = FCPG_Gaussian(
+                self.n_states['n_s'] + self.n_states['n_g'] if isinstance(self.n_states, dict) else self.n_states,
+                # input dim
+                self.n_action_dims,  # output dim
+                sigma=self.init_noise,
+                outactive=self.out_act_func,
+                outscaler=self.action_bounds,
+                n_hiddens=self.hidden_layers,
+                nonlinear=self.act_func,
+                usebn=self.using_bn)
+        elif self.policy_type == 'Conv':
+            raise NotImplementedError
+
+        # initialize optimizer
         if self.mom is not None:
             self.optimizer = self.optimizer_type(self.policy.parameters(), lr=self.lr, momontum = self.mom)
         else:
             self.optimizer = self.optimizer_type(self.policy.parameters(), lr=self.lr)
+
+        # initialize data
         self.mu = torch.Tensor(1)
         self.sigma = torch.Tensor(1)
 
@@ -284,11 +296,13 @@ class PG_Gaussian(PG):
         random_a = np.random.uniform(low=-self.action_bounds, high=self.action_bounds, size=(n, self.n_action_dims))
         return torch.Tensor(random_a).type_as(self.a)
 
-    def choose_action(self, s, greedy = False):
+    def choose_action(self, s, other_data = None, greedy = False):
         self.policy.eval()
         if self.use_cuda:
             s = s.cuda()
-        mu, logsigma, sigma = self.policy(s)
+            if other_data is not None:
+                other_data = other_data.cuda()
+        mu, logsigma, sigma = self.policy(s, other_data)
         mu = mu.detach()
         logsigma = logsigma.detach()
         sigma = sigma.detach()
@@ -318,7 +332,7 @@ class PG_Gaussian(PG):
         if model is None:
             model = self.policy
         # theta is the vectorized model parameters
-        mu_now, logsigma_now, sigma_now = model(self.s[inds])
+        mu_now, logsigma_now, sigma_now = model(self.s[inds], other_data = self.other_data[inds] if self.other_data is not None else None)
         # important sampling coefficients
         # imp_fac: should be a 1-D Variable or Tensor, size is the same with a.size(0)
         imp_fac = torch.exp(
@@ -331,7 +345,7 @@ class PG_Gaussian(PG):
             inds = np.arange(self.s.size(0))
         if model is None:
             model = self.policy
-        mu_now, logsigma_now, _ = model(self.s[inds])
+        mu_now, logsigma_now, _ = model(self.s[inds], other_data = self.other_data[inds] if self.other_data is not None else None)
         entropy = (0.5 * self.n_action_dims * np.log(2 * np.pi * np.e) + torch.sum(logsigma_now, 1)).mean()
         return entropy
 
@@ -340,7 +354,7 @@ class PG_Gaussian(PG):
             inds = np.arange(self.s.size(0))
         if model is None:
             model = self.policy
-        mu1, logsigma1, sigma1 = model(self.s[inds])
+        mu1, logsigma1, sigma1 = model(self.s[inds], other_data = self.other_data[inds] if self.other_data is not None else None)
         if self.using_KL_estimation:
             logp = self.compute_logp(mu1, logsigma1, sigma1, self.a[inds])
             logp_old = self.logpac_old[inds].squeeze()
@@ -352,17 +366,6 @@ class PG_Gaussian(PG):
             kl = 0.5 * (torch.sum(torch.log(sigma1) - torch.log(sigma2), dim=1) - self.n_action_dims +
                         torch.sum(sigma2 / sigma1, dim=1) + torch.sum(torch.pow((mu1 - mu2), 2) / sigma1, 1)).mean()
         return kl
-
-    def mean_kl_divergence_esti(self, inds = None, model = None):
-        if inds is None:
-            inds = np.arange(self.s.size(0))
-        if model is None:
-            model = self.policy
-        mu1, logsigma1, sigma1 = model(self.s[inds])
-        mu2, logsigma2, sigma2 = self.mu[inds], torch.log(self.sigma[inds]), self.sigma[inds]
-        logp = self.compute_logp(mu1, logsigma1, sigma1, self.a[inds])
-        logp_old = self.compute_logp(mu2, logsigma2, sigma2, self.a[inds])
-        return 0.5 * torch.mean(torch.pow((logp_old - logp),2))
 
     def sample_batch(self, batch_size = None):
         batch, self.sample_index = Agent.sample_batch(self)
@@ -384,21 +387,38 @@ class PG_Softmax(PG):
         config = copy.deepcopy(PG_CONFIG)
         config.update(hyperparams)
         super(PG_Softmax, self).__init__(config)
-        # 3 is a, r, done, n_actions is the distribution.
+
+        # initialize buffer
         config['memory_size'] = self.memory_size
         self.memory = databuffer_PG_softmax(config)
-        self.policy = FCPG_Softmax(
-            self.n_states['n_s'] + self.n_states['n_g'] if isinstance(self.n_states, dict) else self.n_states,
-            # input dim
-            self.n_actions,  # output dim
-            n_hiddens=self.hidden_layers,
-            nonlinear=self.act_func,
-            usebn=self.using_bn,
+
+        # initialize policy net
+        if self.policy_type == 'FC':
+            self.policy = FCPG_Softmax(
+                self.n_states['n_s'] + self.n_states['n_g'] if isinstance(self.n_states, dict) else self.n_states,
+                # input dim
+                self.n_actions,  # output dim
+                n_hiddens=self.hidden_layers,
+                nonlinear=self.act_func,
+                usebn=self.using_bn,
+                )
+        elif self.policy_type == 'Conv':
+            self.policy = ConvPG_Softmax(
+                self.n_states,
+                # input dim
+                self.n_actions,  # output dim
+                fcs=self.hidden_layers,
+                nonlinear=self.act_func,
+                usebn=self.using_bn,
             )
+
+        # initialize optimizer
         if self.mom is not None:
             self.optimizer = self.optimizer_type(self.policy.parameters(), lr=self.lr, momontum = self.mom)
         else:
             self.optimizer = self.optimizer_type(self.policy.parameters(), lr=self.lr)
+
+        # initialize data
         self.distri = torch.Tensor(1)
 
     def cuda(self):
@@ -408,16 +428,18 @@ class PG_Softmax(PG):
     def _random_action(self, n):
         return torch.multinomial(1. / self.n_actions * torch.ones(self.n_actions), n, replacement = True).type_as(self.a)
 
-    def choose_action(self, s, greedy = False):
+    def choose_action(self, s, other_data = None, greedy = False):
         self.policy.eval()
         if self.use_cuda:
             s = s.cuda()
-        distri = self.policy(s).detach()
+            if other_data is not None:
+                other_data = other_data.cuda()
+        distri = self.policy(s, other_data).detach()
         self.policy.train()
         if not greedy:
-            a = torch.multinomial(distri, 1, replacement = True)
+            a = torch.multinomial(distri, 1, replacement=True)
         else:
-            _, a = torch.max(distri, dim = -1, keepdim = True)
+            _, a = torch.max(distri, dim=-1, keepdim=True)
         # a = np.random.choice(distri.shape[0], p = distri.cpu().numpy())
         return a, distri
 
@@ -436,7 +458,7 @@ class PG_Softmax(PG):
             inds = np.arange(self.s.size(0))
         if model is None:
             model = self.policy
-        distri_now = model(self.s[inds])
+        distri_now = model(self.s[inds], other_data = self.other_data[inds] if self.other_data is not None else None)
         # important sampling coefficients
         # imp_fac: should be a 1-D Variable or Tensor, size is the same with a.size(0)
         imp_fac = torch.exp(self.compute_logp(distri_now, self.a[inds]) - self.logpac_old[inds].squeeze())
@@ -448,7 +470,7 @@ class PG_Softmax(PG):
             inds = np.arange(self.s.size(0))
         if model is None:
             model = self.policy
-        distri = model(self.s[inds])
+        distri = model(self.s[inds], other_data = self.other_data[inds] if self.other_data is not None else None)
         # important sampling coefficients
         # imp_fac: should be a 1-D Variable or Tensor, size is the same with a.size(0)
         entropy = - torch.sum(distri * torch.log(distri), 1).mean()
@@ -459,14 +481,11 @@ class PG_Softmax(PG):
             inds = np.arange(self.s.size(0))
         if model is None:
             model = self.policy
-        distri1 = model(self.s[inds])
+        distri1 = model(self.s[inds], other_data = self.other_data[inds] if self.other_data is not None else None)
         distri2 = self.distri[inds].squeeze()
         logratio = torch.log(distri2 / distri1)
         kl = torch.sum(distri2 * logratio, 1)
         return kl.mean()
-
-    def mean_kl_divergence_esti(self, inds = None, model = None):
-        pass
 
     def sample_batch(self, batch_size = None):
         batch, self.sample_index = Agent.sample_batch(self)
@@ -519,11 +538,6 @@ def run_pg_train(env, agent, max_timesteps, logger):
             mb_dones.append(dones.astype(np.uint8))
             mb_rewards.append(rewards)
             mb_obs_.append(observations_)
-
-            for e, info in enumerate(infos):
-                if dones[e]:
-                    observations_[e] = info.get('new_obs')
-
             observations = observations_
 
         epinfobuf.extend(epinfos)

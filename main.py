@@ -25,7 +25,10 @@ from configs import NAF_Reacherv2, NAF_Pendulumv0, AdaptiveKLPPO_Hopperv2, \
     DDPG_Swimmerv2, DDPG_Hopperv2, DDPG_Pendulumv0, HTRPO_FlipBit8, HTRPO_FlipBit16,\
     HTRPO_EmptyMaze, HTRPO_FourRoomMaze, HTRPO_FetchPushv1, HTRPO_FetchReachv1, \
     HTRPO_FetchSlidev1, HTRPO_FetchPushDiscrete, HTRPO_FetchPickAndPlacev1,\
-    HTRPO_FetchReachDiscrete, TD3_Hopperv2
+    HTRPO_FetchReachDiscrete, HTRPO_SawyerLift, HTRPO_SawyerPickPlaceCereal, \
+    HTRPO_SawyerPickPlaceCan, HTRPO_SawyerPickPlaceBread, HTRPO_HandManipulateBlockRotateZv0,\
+    HTRPO_HandReachv0, HTRPO_FetchSlideDiscrete, HTRPO_MsPacman, HTRPO_FlipBit32,\
+    HTRPO_FlipBit48, HTRPO_SawyerPickPlaceMilk
 
 torch.set_default_tensor_type(torch.FloatTensor)
 
@@ -35,6 +38,9 @@ def arg_parser():
                         help='algorithm to use: DQN | DDQN | DuelingDQN | DDPG | NAF | PG | NPG | TRPO | PPO')
     parser.add_argument('--env', default="Reacher-v1",
                         help='name of the environment to run')
+    parser.add_argument('--reward', default='sparse',
+                        help='reward type during training: dense | sparse, default: sparse. NOTE: this argument will be '
+                             'used only when the environment supports sparse rewards. ')
     parser.add_argument('--ou_noise', type=bool, default=True)
     # TODO: SUPPORT PARAM NOISE
     parser.add_argument('--param_noise', type=bool, default=False)
@@ -55,7 +61,7 @@ def arg_parser():
     parser.add_argument('--display', type=int, default=500, metavar='N',
                         help='episode interval for display (default: 5)')
     parser.add_argument('--eval_interval', type=int, default=0, metavar='N',
-                        help='episode interval for display (default: 0)')
+                        help='episode interval for evaluation (default: 0). 0 means no evaluation option is applied.')
     parser.add_argument('--num_evals', type=int, default=10, metavar='N',
                         help='evaluation episode number each time (default: 10)')
     parser.add_argument('--snapshot_steps', type=int, default=1e4, metavar='N',
@@ -70,12 +76,14 @@ def arg_parser():
                         help='whether to normalize outputs')
     parser.add_argument('--checkpoint', type=int, default=0,
                         help='resume from this checkpoint')
-    parser.add_argument('--render', type=float, default=0.,
-                        help='when to render GUI (default: 0). WARNING: this is the episode return threshold which '
-                             'controls when to render a GUI window, therefore, it should be set carefully with dif-'
-                             'ferent environments and it will slow down the training process.')
+    parser.add_argument('--render', action='store_true', default=False,
+                        help='whether to render GUI (default: False) during evaluation.')
     parser.add_argument('--test', help='test the specific policy.', action='store_true', default = False)
     parser.add_argument('--cpu', help='whether use cpu to train', action='store_true', default = False)
+    parser.add_argument('--usedemo', action='store_true', default=False,
+                        help='whether to use imitation learning to improve performance')
+    parser.add_argument('--demopath', default='demos',
+                        help='path where you stores the demonstration file demo.hdf5. Now only HTRPO supported.')
 
     args = parser.parse_args()
     return args
@@ -113,10 +121,10 @@ if __name__ == "__main__":
     else:
         assert 0, "Invalid Environment"
 
-    # if env_type not in {"mujoco"}:
-    #     print("The chosen env dose not support normalization. No normalization is applied.")
-    #     configs['norm_ob'] = False
-    #     configs['norm_rw'] = False
+    if env_type not in {"mujoco", "robotics", "robotsuite"}:
+        print("The chosen env dose not support normalization. No normalization is applied.")
+        configs['norm_ob'] = False
+        configs['norm_rw'] = False
 
     logger = SummaryWriter(comment = args.alg + "-" + args.env)
     output_dir = os.path.join("output", "models", args.alg)
@@ -152,10 +160,26 @@ if __name__ == "__main__":
 
     if not args.cpu:
         RL_brain.cuda()
+
     # resume networks
     if args.resume:
         RL_brain.load_model(load_path=output_dir, load_point=args.checkpoint)
 
+    if args.usedemo:
+        assert args.alg in {"HTRPO"}, "Imitation learning warm-up only supports HTRPO."
+        demofile = os.path.join(args.demopath, "demo.pkl")
+        if not os.path.exists(demofile):
+            raise RuntimeError("Demo file " + demofile + " does not exist.")
+        train_configs = {
+            "batch_size": 100,
+            "iter_num": 0,
+            "num_ep_selected": 225, # from the setting of IRIS
+            "using_act_norm":True
+        }
+        info = RL_brain.pretrain_policy_use_demos(demofile, train_configs)
+        if info["action_mean"] is not None and info["action_std"] is not None:
+            env.a_mean = info["action_mean"]
+            env.a_std = info["action_std"]
 
     # training
     if args.alg == "PPO" or args.alg == "AdaptiveKLPPO":
@@ -175,7 +199,7 @@ if __name__ == "__main__":
     elif args.alg == 'HTRPO':
         trained_brain = run_htrpo_train(env, RL_brain, args.num_steps, logger,
                                         eval_interval = args.eval_interval if args.eval_interval > 0 else None,
-                                        num_evals = args.num_evals)
+                                        num_evals = args.num_evals, render=args.render)
     else:
         raise RuntimeError("Not an invalid algorithm.")
 

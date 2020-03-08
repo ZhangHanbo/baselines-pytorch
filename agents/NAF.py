@@ -171,10 +171,6 @@ def run_naf_train(env, agent, max_timesteps, logger, log_interval):
             mb_obs_.append(observations_)
             mb_dones.append(dones)
 
-            for e, info in enumerate(infos):
-                if dones[e]:
-                    observations_[e] = info.get('new_obs')
-
             observations = observations_
 
         epinfobuf.extend(epinfos)

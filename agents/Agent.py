@@ -49,9 +49,10 @@ class Agent:
         self.s = torch.Tensor(1)
         self.a = torch.Tensor(1)
         self.logpac_old = torch.Tensor(1)
+        self.other_data = None
 
     @abc.abstractmethod
-    def choose_action(self, s, greedy = False):
+    def choose_action(self, s, other_data = None, greedy = False):
         raise NotImplementedError("Must be implemented in subclass.")
 
     @abc.abstractmethod
@@ -97,18 +98,25 @@ class Agent:
         if self.value is not None:
             self.value = self.value.eval()
         observation = env.reset()
+
         while (len(eprew_list) < eval_num):
+
+            for key in observation.keys():
+                observation[key] = torch.Tensor(observation[key])
+
             if render:
                 env.render()
+
             if isinstance(observation, dict):
-                observation = torch.cat((torch.Tensor(observation['observation']),
-                                          torch.Tensor(observation['desired_goal'])), dim=-1)
+                goal = observation["desired_goal"]
+                observation = observation["observation"]
             else:
-                observation = torch.Tensor(observation)
+                goal = None
+
             if not self.dicrete_action:
-                actions, _, _, _ = self.choose_action(observation, greedy=True)
+                actions, _, _, _ = self.choose_action(observation, other_data=goal, greedy=False)
             else:
-                actions, _ = self.choose_action(observation, greedy=True)
+                actions, _ = self.choose_action(observation, other_data=goal, greedy=False)
             actions = actions.cpu().numpy()
             observation, rewards, dones, infos = env.step(actions)
             for e, info in enumerate(infos):

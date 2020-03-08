@@ -4,7 +4,7 @@ HTRPOconfig = {
     'cg_damping': 1e-3,
     'reward_decay': 0.98,
     'GAE_lambda': 0.,
-    'max_kl_divergence': 1e-5,
+    'max_kl_divergence': 2e-5,
     'entropy_weight': 1e-4,
     'per_decision': True,
     'weighted_is': True,
@@ -17,7 +17,7 @@ HTRPOconfig = {
     # for comparison with HPG
     'lr': 5e-4,
     # NEED TO FOCUS ON THESE PARAMETERS
-    'using_hpg': False,
+    'using_hpg': True,
     'steps_per_iter': 3200,
     'sampled_goal_num': 100,
     'value_type': 'FC',

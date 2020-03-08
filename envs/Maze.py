@@ -4,7 +4,7 @@ from scipy.sparse.csgraph import shortest_path
 from gym import spaces
 
 class Maze(object):
-    def __init__(self, layout, max_steps, entries, exits=None, epsilon=0.0):
+    def __init__(self, layout, max_steps, entries, exits=None, epsilon=0.0, reward = 'sparse'):
         self.layout = np.array(layout, dtype=np.int)
         validr, validc = np.nonzero(self.layout)
         self.valid_positions = set(zip(validr, validc))
@@ -23,6 +23,10 @@ class Maze(object):
         self.n_actions = 4
         self.d_observations = 2
         self.d_goals = 2
+
+        self.reward_type = reward
+
+        self.acc_rew = 0
 
         self.action_space = spaces.Discrete(self.n_actions)
         self.observation_space = spaces.Dict({
@@ -73,6 +77,7 @@ class Maze(object):
         return distance
 
     def reset(self):
+        self.acc_rew = 0
         self.n_steps = 0
 
         i = np.random.choice(len(self.entries))
@@ -107,12 +112,19 @@ class Maze(object):
         if (newr, newc) in self.valid_positions:
             self.position = (newr, newc)
 
-        if self.position == self.goal:
-            reward = 0.0
+        if self.reward_type == "dense":
+            reward = -np.abs((np.array(self.position) - np.array(self.goal))).sum() / 20
+            # when reaching the goal, an extra reward is added
+            if self.position == self.goal:
+                reward += 5
         else:
-            reward = -1.0
+            if self.position == self.goal:
+                reward = 0.0
+            else:
+                reward = -1.0
+        self.acc_rew += reward
 
-        done = (self.max_episode_steps <= self.n_steps) or (reward == 0.0)
+        done = (self.max_episode_steps <= self.n_steps) or (reward >= 0.0)
 
         obs = {
             "observation": np.array(self.position),
@@ -120,20 +132,23 @@ class Maze(object):
             "achieved_goal": np.array(self.position).copy(),
         }
 
-        info = {'is_success': not -reward}
+        info = {'is_success': reward >= 0.0}
         if done:
             info['episode'] = {
                 'l': self.n_steps,
-                'r': - self.n_steps + 1 + reward,
+                'r': self.acc_rew,
             }
 
         return obs, reward, done, info
 
     def compute_reward(self, achieved_goal, desired_goal, info):
-        # return: dist Ng x T
         assert achieved_goal.shape == desired_goal.shape
+        # return: dist Ng x T
         dif = np.abs((achieved_goal - desired_goal)).sum(axis=-1)
-        return - (dif > 0).astype(np.float32)
+        if self.reward_type == "dense":
+            return -np.abs((achieved_goal - desired_goal)).sum(axis=-1) + 5 * (dif == 0).astype(np.float32)
+        else:
+            return - (dif > 0).astype(np.float32)
 
     def seed(self, seed):
         np.random.seed(seed)
@@ -157,11 +172,12 @@ class Maze(object):
         return ''.join(s)
 
 class EmptyMaze(Maze):
-    def __init__(self):
-        super(EmptyMaze, self).__init__(layout=np.ones((11, 11), dtype=np.int), max_steps = 32, entries=[(0, 0)])
+    def __init__(self, reward = 'sparse'):
+        super(EmptyMaze, self).__init__(layout=np.ones((11, 11), dtype=np.int), max_steps = 32, entries=[(0, 0)],
+                                        reward = reward)
 
 class FourRoomMaze(Maze):
-    def __init__(self):
+    def __init__(self, reward = 'sparse'):
         layout = np.ones(shape=(11, 11), dtype=np.int)
 
         # Walls
@@ -176,4 +192,4 @@ class FourRoomMaze(Maze):
         layout[9, 5] = 1
         super(FourRoomMaze, self).__init__(layout = layout, max_steps=32,
                                            entries=[(0, 0), (0, 10), (10, 0), (10, 10)],
-                                           epsilon=0.2)
+                                           epsilon=0.2, reward = reward)

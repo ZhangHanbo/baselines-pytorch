@@ -104,7 +104,7 @@ class DDPG(Agent):
             s = s.cuda()
         preda = self.e_Actor(s).detach()
         anoise = torch.normal(torch.zeros(preda.size()),
-                              self.noise * torch.ones(preda.size())).type_as(preda).clamp(-self.action_bounds, self.action_bounds)
+                              self.noise * torch.ones(preda.size())).type_as(preda)
         self.e_Actor.train()
         return preda + anoise
 
@@ -231,10 +231,6 @@ def run_ddpg_train(env, agent, max_timesteps, logger, log_interval):
             mb_rs.append(rewards)
             mb_obs_.append(observations_)
             mb_dones.append(dones)
-
-            for e, info in enumerate(infos):
-                if dones[e]:
-                    observations_[e] = info.get('new_obs')
 
             observations = observations_
 

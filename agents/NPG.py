@@ -133,11 +133,6 @@ def run_npg_train(env, agent, max_timesteps, logger):
             mb_dones.append(dones.astype(np.uint8))
             mb_rewards.append(rewards)
             mb_obs_.append(observations_)
-
-            for e, info in enumerate(infos):
-                if dones[e]:
-                    observations_[e] = info.get('new_obs')
-
             observations = observations_
 
         epinfobuf.extend(epinfos)

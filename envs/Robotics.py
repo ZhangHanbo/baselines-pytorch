@@ -27,7 +27,7 @@ class FetchReachDiscrete(object):
     def __init__(self, max_steps=50,
                  action_mode="impulsemixed", action_buckets=[-1, 0, 1],
                  action_stepsize=[0.1, 1.0],
-                 reward_mode="sparse"):
+                 reward="sparse"):
         """
         Parameters:
             action_mode {"cart","cartmixed","cartprod","impulse","impulsemixed"}
@@ -74,6 +74,8 @@ class FetchReachDiscrete(object):
         })
 
         self.max_episode_steps = max_steps
+        self.reward_mode = reward
+        self.acc_rew = 0
 
     def generate_action_map(self, action_buckets, action_stepsize=1.):
 
@@ -111,6 +113,8 @@ class FetchReachDiscrete(object):
 
     def reset(self):
 
+        self.acc_rew = 0
+
         self.action_vel = np.zeros(4)  # Initialize/reset
 
         self.n_steps = 0
@@ -126,8 +130,11 @@ class FetchReachDiscrete(object):
 
         return obs
 
+    def goal_distance(self, goal_a, goal_b):
+        return np.linalg.norm(goal_a - goal_b, axis=-1)
+
     def step(self, a):
-        if a >= self.n_actions:
+        if a[0] >= self.n_actions:
             raise Exception('Invalid action')
 
         self.n_steps += 1
@@ -142,18 +149,26 @@ class FetchReachDiscrete(object):
             self.state = np.hstack((self.state, np.clip(self.action_vel, -1, 1)))
             obs["observation"] = self.state
 
-        if self.env.env._is_success(self.achieved_goal, self.goal):
-            reward = 0.
+        reached_goal = False
+        if self.reward_mode == "sparse":
+            if self.env.env._is_success(self.achieved_goal, self.goal):
+                reward = 0.
+                reached_goal = True
+            else:
+                reward = -1.
         else:
-            reward = -1.
+            reward = -self.goal_distance(self.achieved_goal,self.goal)
+            if self.env.env._is_success(self.achieved_goal, self.goal):
+                reached_goal = True
+        self.acc_rew += reward
 
-        done = (self.max_episode_steps <= self.n_steps) or (reward == 0.)
+        done = (self.max_episode_steps <= self.n_steps) or reached_goal
 
-        info = {'is_success': reward == 0}
+        info = {'is_success': reached_goal}
         if done:
             info['episode'] = {
                 'l': self.n_steps,
-                'r': - self.n_steps + 1 + reward,
+                'r': self.acc_rew,
             }
 
         return obs, reward, done, info
@@ -176,7 +191,7 @@ class FetchPushDiscrete(FetchReachDiscrete):
     def __init__(self, max_steps=50,
                  action_mode="impulsemixed", action_buckets=[-1, 0, 1],
                  action_stepsize=[0.1, 1.0],
-                 reward_mode="sparse"):
+                 reward="sparse"):
 
         self.env = gym.make("FetchPush-v1")
 
@@ -196,12 +211,14 @@ class FetchPushDiscrete(FetchReachDiscrete):
         })
 
         self.max_episode_steps = max_steps
+        self.reward_mode = reward
+        self.acc_rew = 0
 
 class FetchSlideDiscrete(FetchReachDiscrete):
     def __init__(self, max_steps=50,
                  action_mode="impulsemixed", action_buckets=[-1, 0, 1],
                  action_stepsize=[0.1, 1.0],
-                 reward_mode="sparse"):
+                 reward="sparse"):
 
         try:
             self.env = gym.make("FetchSlide-v1")
@@ -225,3 +242,5 @@ class FetchSlideDiscrete(FetchReachDiscrete):
         })
 
         self.max_episode_steps = max_steps
+        self.reward_mode = reward
+        self.acc_rew = 0

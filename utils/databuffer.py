@@ -15,10 +15,12 @@ class databuffer(object):
             self.n_actions = config['n_actions']
         self.actions_dims = config['n_action_dims']
         self.dicrete_action = config['dicrete_action']
-        self.S = np.zeros([0, self.state_dims], dtype = np.float32)
+        if isinstance(self.state_dims, int):
+            self.state_dims = (self.state_dims, )
+        self.S = np.zeros((0,) + self.state_dims, dtype = np.float32)
         self.A = np.zeros([0, self.actions_dims], dtype = np.uint8 if self.dicrete_action else np.float32)
         self.R = np.zeros([0, 1], dtype = np.float32)
-        self.S_ = np.zeros([0, self.state_dims], dtype = np.float32)
+        self.S_ = np.zeros((0,) + self.state_dims, dtype = np.float32)
         self.done = np.zeros([0, 1], dtype = np.uint8)
 
         # other data in transitions. For example, goals, episode infos, etc.
@@ -77,10 +79,10 @@ class databuffer(object):
         return batch, sample_index
 
     def reset_buffer(self):
-        self.S = np.zeros([0, self.state_dims], dtype = np.float32)
+        self.S = np.zeros((0,) + self.state_dims, dtype=np.float32)
         self.A = np.zeros([0, self.actions_dims], dtype = np.uint8 if self.dicrete_action else np.float32)
         self.R = np.zeros([0, 1], dtype = np.float32)
-        self.S_ = np.zeros([0, self.state_dims], dtype = np.float32)
+        self.S_ = np.zeros((0,) + self.state_dims, dtype=np.float32)
         self.done = np.zeros([0, 1], dtype = np.bool)
         if self.other_data:
             for key in self.other_data.keys():

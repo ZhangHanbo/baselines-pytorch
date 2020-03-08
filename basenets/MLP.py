@@ -78,7 +78,10 @@ class MLP(nn.Module):
                 assert 0, "please specify one initializer."
             self.layers.append(linear_layer)
 
-    def forward(self,x):
+    def forward(self,x,other_data = None):
+        assert other_data is None or isinstance(other_data, torch.Tensor)
+        if other_data is not None:
+            x = torch.cat((x, other_data), dim=-1)
         input_dim = x.dim()
         if input_dim == 1:
             x = x.unsqueeze(0)

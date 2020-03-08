@@ -88,6 +88,7 @@ PG_CONFIG = {
     'lr_v' : 0.01,
     'iters_v': 3,
     'using_KL_estimation' : False,
+    'policy_type': 'FC',
 }
 PG_CONFIG['memory_size'] = PG_CONFIG['steps_per_iter']
 
@@ -128,8 +129,9 @@ HTRPO_CONFIG = {
     'goal_space': None,
     'per_decision': True,
     'weighted_is': True,
-    'using_active_goals' : True,
+    'using_hgf_goals' : True,
     'using_KL_estimation' : True,
     'using_hpg': False,
     'using_original_data': False,
+    'KL_esti_method_for_TRPO' : 'kl2',
 }

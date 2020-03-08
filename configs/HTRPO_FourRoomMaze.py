@@ -1,6 +1,6 @@
 HTRPOconfig = {
     'reward_decay': 0.95,
-    'max_kl_divergence': 0.001,
+    'max_kl_divergence': 2e-5,
     'goal_space': None,
     'per_decision': True,
     'GAE_lambda': 0.,
@@ -14,7 +14,7 @@ HTRPOconfig = {
     # for comparison with HPG
     'lr': 1e-3,
     # NEED TO FOCUS ON THESE PARAMETERS
-    'using_hpg': False,
+    'using_hpg': True,
     'steps_per_iter': 256,
     'sampled_goal_num': None,
     'value_type': 'FC',

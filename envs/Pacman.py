@@ -1,13 +1,16 @@
 import os
 import shutil
 import uuid
-
+import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 from collections import deque
 
+import gym
+from gym import spaces
+
 try:
-    from ale_python_interface import ALEInterface
+    from atari_py import ALEInterface
 except Exception as e:
     print("Could not load ale_python_interface. Pacman's not available.")
 
@@ -107,6 +110,7 @@ class AtariWrapper():
 
         # Transpose so we get HxWxC instead of CxHxW
         self.current_frame = np.array(np.transpose(self.state_fifo, (1, 2, 0)))
+        self.current_frame = cv2.resize(self.current_frame, (84, 84))
         return self.current_frame, reward, self.ale.game_over(), {"ale.lives": self.ale.lives()}
 
     def step(self, *args, **kwargs):
@@ -168,6 +172,7 @@ class AtariWrapper():
         self.state_fifo.append(frame_lumi)
 
         self.state = np.transpose(self.state_fifo, (1, 2, 0))
+        self.state = cv2.resize(self.state, (84, 84))
         return self.state
 
     def get_action_meanings(self):
@@ -287,7 +292,7 @@ class MsPacman(AtariWrapper):
     # This is only to sanity check the network *can* solve it
     only_locations = False
 
-    d_observations = (168, 156, 4) if not only_locations else 2
+    d_observations = (84, 84, 4) if not only_locations else 2
     d_goals = 2
     n_actions = 4
 
@@ -309,16 +314,21 @@ class MsPacman(AtariWrapper):
         [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]], dtype=np.bool)
     valid_goals = np.transpose(np.nonzero(is_valid_goal))
 
-    def __init__(self, rom_path=b"/Users/avinash/Research/Thesis/MsPacman/ms_pacman.bin",
+    def __init__(self, rom_path=b"/data0/svc4/ms_pacman.bin",
                  randomstart=False,
-                 max_steps=26):
+                 max_steps=26,
+                 reward_type='sparse'):
 
         AtariWrapper.__init__(self, rom_path,
                               frameskip=13,
                               stack_num_states=4,
-                              concatenate_state_every=4)
+                              concatenate_state_every=4,
+                              )
 
-        self.max_steps = max_steps
+        self.max_episode_steps = max_steps
+        self.reward_type = reward_type
+        self.acc_rew = 0
+
         self.all_saved_states = self.generate_saved_states(randomstart)
 
         # The following is needed for live plotting/rendering with the goal location drawn.
@@ -332,6 +342,14 @@ class MsPacman(AtariWrapper):
                 self.loc_pixel_lookup[(row_i, col_i)] = (prev_row, row, prev_col, col)
                 prev_col = col
             prev_row = row
+
+        self.observation_space = spaces.Dict({
+            "observation": spaces.Box(0 * np.ones(self.d_observations), 255 * np.ones(self.d_observations)),
+            "desired_goal": spaces.Box(- np.inf * np.ones(self.d_goals), np.inf * np.ones(self.d_goals)),
+            "achieved_goal": spaces.Box(- np.inf * np.ones(self.d_goals), np.inf * np.ones(self.d_goals)),
+        })
+
+        self.action_space = spaces.Discrete(self.n_actions)
 
     def generate_saved_states(self, randomstart):
         """
@@ -388,19 +406,24 @@ class MsPacman(AtariWrapper):
                 # Bypass our act and perform it on ALE directly. No Frameskip this way.
                 self.ale.act(2)
 
-        self.n_steps = 1
+        self.n_steps = 0
         self.cur_grid_loc = self.find_pacman(self.observe_raw(get_rgb=False))
 
         goal_index = np.random.randint(0, len(self.valid_goals))
         self.goal = self.valid_goals[goal_index]
-
+        self.acc_rew = 0
         self.achieved_goal = self.cur_grid_loc
 
         # If it's in debug mode and only training on locations.
         if self.only_locations:
             self.state = self.achieved_goal
 
-        return np.array(self.state), np.array(self.achieved_goal), self.goal, 0.0
+        obs = {}
+        obs["observation"] = np.array(self.state) / 255
+        obs["achieved_goal"] = np.array(self.achieved_goal)
+        obs["desired_goal"] = np.array(self.goal)
+
+        return obs
 
     def crop_frame(self, frame):
         """Crops a frame  This is a divergence from DQN's options.
@@ -442,7 +465,10 @@ class MsPacman(AtariWrapper):
                     for start states
         """
         lives_before = self.ale.lives()
-        self.state, reward, done, info = self._step(a, force_noop=force_noop)
+        if isinstance(a, int):
+            self.state, reward, done, info = self._step(a, force_noop=force_noop)
+        else:
+            self.state, reward, done, info = self._step(a.squeeze(), force_noop=force_noop)
         lives_after = self.ale.lives()
 
         if force_noop:
@@ -453,12 +479,24 @@ class MsPacman(AtariWrapper):
         self.new_grid_loc = self.find_pacman(self.observe_raw(get_rgb=False))
 
         # Check if we've reached goal
-        if np.allclose(self.new_grid_loc, self.goal) and not ignore_goal:
-            reward = self.max_steps - self.n_steps + 1
+        if self.reward_type == 'sparse':
+            if np.allclose(self.new_grid_loc, self.goal) and not ignore_goal:
+                reward = 0.0
+            else:
+                reward = -1.0
         else:
-            reward = 0.0
+            reward = np.abs(np.array(self.new_grid_loc) - np.array(self.goal)).sum()
+        self.acc_rew += reward
 
-        done = (self.max_steps <= self.n_steps) or (reward > 0.0) or (lives_before > lives_after)
+        done = (self.max_episode_steps <= self.n_steps) or (reward == 0.0) or (lives_before > lives_after)
+
+        info['is_success'] = (reward == 0.0)
+        if done:
+            info["episode"]={
+                "l" : self.n_steps,
+                "r" : self.acc_rew
+            }
+            self.acc_rew = 0
 
         self.achieved_goal = self.new_grid_loc
 
@@ -466,7 +504,12 @@ class MsPacman(AtariWrapper):
         if self.only_locations:
             self.state = self.achieved_goal
 
-        return np.array(self.state), np.array(self.achieved_goal), reward, done
+        obs = {}
+        obs["observation"] = np.array(self.state) / 255
+        obs["achieved_goal"] = np.array(self.achieved_goal)
+        obs["desired_goal"] = np.array(self.goal)
+
+        return obs, reward, done, info
 
     def subgoals(self, episodes, subgoals_per_episode):
 
@@ -483,21 +526,14 @@ class MsPacman(AtariWrapper):
         uniq_goals = np.unique(np.concatenate(goals, axis=0), axis=0)
         return uniq_goals[uniq_goals[:, 0] != -1, :]
 
-    def evaluate_length(self, episode, goal):
-        for t in range(1, episode.length):
-            if np.allclose(episode.achieved_goals[t], goal):
-                return t + 1
-
-        return episode.length
-
-    def evaluate_rewards(self, episode, goal):
-        rewards = np.zeros(episode.length)
-
-        for t in range(1, episode.length):
-            if np.allclose(episode.achieved_goals[t], goal):
-                rewards[t] = self.max_steps - t
-
-        return rewards
+    def compute_reward(self, achieved_goal, desired_goal, info = None):
+        assert achieved_goal.shape == desired_goal.shape
+        if self.reward_type == "dense":
+            return -np.abs((achieved_goal - desired_goal)).sum(axis=-1)
+        else:
+            # return: dist Ng x T
+            dif = np.abs((achieved_goal - desired_goal)).sum(axis=-1)
+            return - (dif > 0).astype(np.float32)
 
     def render(self, **args):
         return

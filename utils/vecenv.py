@@ -14,8 +14,7 @@ import warnings
 
 def space_dim(space):
     if isinstance(space, spaces.Box):
-        assert len(space.shape) == 1, "Only support 1-d input."
-        return space.shape[0]
+        return space.shape[0] if len(space.shape) == 1 else space.shape
     elif isinstance(space, spaces.MultiBinary):
         return space.n
     elif isinstance(space, spaces.MultiDiscrete):
@@ -182,7 +181,7 @@ class VecEnv(ABC):
         self.compute_reward = compute_reward
 
     @abstractmethod
-    def reset(self):
+    def reset(self, i = None):
         """
         Reset all the environments and return an array of
         observations, or a dict of observation arrays.
@@ -241,7 +240,19 @@ class VecEnv(ABC):
         This is available for backwards compatibility.
         """
         self.step_async(actions)
-        return self.step_wait()
+        obs, rews, dones ,infos = self.step_wait()
+
+        for e, info in enumerate(infos):
+            if dones[e]:
+                if isinstance(obs, dict):
+                    infos[e]["new_obs"] = {}
+                    temp_obs = self.reset(e)
+                    for k in obs.keys():
+                        infos[e]["new_obs"][k] = temp_obs[k][e]
+                else:
+                    infos[e]["new_obs"] = self.reset(e)[e]
+
+        return obs, rews, dones ,infos
 
     def render(self, mode='human'):
         imgs = self.get_images()
@@ -292,7 +303,7 @@ class VecEnvWrapper(VecEnv):
         self.venv.step_async(actions)
 
     @abstractmethod
-    def reset(self):
+    def reset(self, i = None):
         pass
 
     @abstractmethod
@@ -358,17 +369,21 @@ class DummyVecEnv(VecEnv):
 
             obs, self.buf_rews[e], self.buf_dones[e], self.buf_infos[e] = self.envs[e].step(action)
 
-            if self.buf_dones[e]:
-                self.buf_infos[e]["new_obs"] = self.envs[e].reset()
-
             self._save_obs(e, obs)
+
         return (self._obs_from_buf(), np.copy(self.buf_rews), np.copy(self.buf_dones),
                 self.buf_infos.copy())
 
-    def reset(self):
-        for e in range(self.num_envs):
-            obs = self.envs[e].reset()
-            self._save_obs(e, obs)
+    def reset(self, i = None):
+        if i is None:
+            for e in range(self.num_envs):
+                obs = self.envs[e].reset()
+                self._save_obs(e, obs)
+        elif isinstance(i, int) and i >= 0 and i < len(self.envs):
+            obs = self.envs[i].reset()
+            self._save_obs(i, obs)
+        else:
+            raise RuntimeError("Must indicate a valid index for resetting environment.")
         return self._obs_from_buf()
 
     def _save_obs(self, e, obs):
@@ -470,15 +485,22 @@ class VecNormalize(VecEnvWrapper):
     """
 
     def __init__(self, venv, ob=True, ret=True, act=True, clipob=10., cliprew=10., gamma=0.99, epsilon=1e-8):
+
         VecEnvWrapper.__init__(self, venv)
+
         self.norm_act = act
         # if action space is not continuous or continuous but unbounded, disable the action normalization.
         if act and (not isinstance(self.venv.action_space, spaces.Box) or
-                    (isinstance(self.venv.action_space, spaces.Box) and np.isinf(self.venv.action_space.high - self.venv.action_space.low).sum() > 0)):
-            warnings.warn("Only continuous action space supports normalization. Action normalization disabled.")
+                    (isinstance(self.venv.action_space, spaces.Box)
+                     and np.isinf(self.venv.action_space.high - self.venv.action_space.low).sum() > 0)):
+            warnings.warn("Only finite continuous action space supports normalization. Action normalization disabled.")
             self.norm_act = False
         self.norm_ob = ob
         self.norm_rw = ret
+
+        self.a_mean = None
+        self.a_std = None
+
         # Different from observation and reward normalization, action normalization is to map actions to [-1,1]
         if isinstance(self.observation_space, spaces.Dict):
             self.ob_rms = {}
@@ -487,8 +509,10 @@ class VecNormalize(VecEnvWrapper):
         else:
             self.ob_rms = RunningMeanStd(shape=self.observation_space.shape)
         self.ret_rms = RunningMeanStd(shape=())
+
         self.clipob = clipob
         self.cliprew = cliprew
+
         # return
         self.ret = np.zeros(self.num_envs)
         self.gamma = gamma
@@ -534,12 +558,20 @@ class VecNormalize(VecEnvWrapper):
             return obs
 
     def _unnorm_action(self, normed_action):
-        return 0.5 * (normed_action * (self.action_space.low - self.action_space.high)
-                      + self.action_space.low + self.action_space.high)
+        a_mean = self.a_mean \
+            if self.a_mean is not None \
+            else 0.5 * (self.action_space.low + self.action_space.high)
+        a_std = self.a_std \
+            if self.a_std is not None \
+            else 0.5 * (self.action_space.high - self.action_space.low)
+        return normed_action * a_std + a_mean
 
-    def reset(self):
+    def reset(self, i = None):
         self.ret = np.zeros(self.num_envs)
-        obs = self.venv.reset()
+        if i is not None:
+            obs = self.venv.reset()
+        else:
+            obs = self.venv.reset(i)
         return self._obfilt(obs)
 
 class VecFrameStack(VecEnvWrapper):
