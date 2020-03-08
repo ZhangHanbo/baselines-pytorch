@@ -24,6 +24,8 @@ tensorboardX         1.7
 
 mujoco-py            2.0.2.2
 
+robosuite
+
 Please make sure that the versions of all the requirements match the ones above, which is necessary for running the code.
 
 ## Implemented Algorithms
@@ -70,7 +72,7 @@ python main.py --alg HTRPO --env FlipBit8 --unnormobs --num_steps 50000 --num_ev
 
 1. All the mojoco envs.
 
-2. Our Discrete Envs: FlipBit8, FlipBit16, EmptyMaze, FourRoomMaze, FetchReachDiscrete, FetchPushDiscrete
+2. Our Discrete Envs: FlipBit8, FlipBit16, EmptyMaze, FourRoomMaze, FetchReachDiscrete, FetchPushDiscrete, FetchSlideDiscrete, MsPacman
 
 All the listed names can be directly used in command line for training policies. BUT NOTE: sparse reward envs only support HTRPO and dense reward envs do not support HTRPO.
 
