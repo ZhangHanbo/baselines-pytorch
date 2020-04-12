@@ -485,7 +485,7 @@ class MsPacman(AtariWrapper):
             else:
                 reward = -1.0
         else:
-            reward = np.abs(np.array(self.new_grid_loc) - np.array(self.goal)).sum()
+            reward = - np.abs(np.array(self.new_grid_loc) - np.array(self.goal)).sum()
         self.acc_rew += reward
 
         done = (self.max_episode_steps <= self.n_steps) or (reward == 0.0) or (lives_before > lives_after)

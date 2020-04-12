@@ -36,16 +36,22 @@ class HTRPO(TRPO):
         self.using_kl2 = config['using_kl2']
         self.kl_for_trpo = config['KL_esti_method_for_TRPO']
         self.n_valid_ep = 0
+        self.reward_type = config['reward_type']
 
         self.norm_ob = config['norm_ob']
         if self.norm_ob:
             self.ob_rms = {}
             for key in self.env.observation_space.spaces.keys():
                 self.ob_rms[key] = RunningMeanStd(shape=self.env.observation_space.spaces[key].shape)
-            self.ob_mean = [0,]
-            self.ob_var = [1,]
-            self.goal_mean = [0,]
-            self.goal_var = [1,]
+            self.ob_mean = [0.,]
+            self.ob_var = [1.,]
+            self.goal_mean = [0.,]
+            self.goal_var = [1.,]
+
+        self.norm_rw = config['norm_rw']
+        if self.norm_rw:
+            self.ret_rms = RunningMeanStd(shape=())
+            self.rw_var = 1.
 
         assert config['sampled_goal_num'] is None \
                or config['sampled_goal_num'] > 0 \
@@ -238,11 +244,18 @@ class HTRPO(TRPO):
             self.ob_rms['observation'].update(self.s.cpu().numpy())
             self.ob_rms['desired_goal'].update(self.goal.cpu().numpy())
 
+        if self.norm_rw and self.reward_type == "dense":
+            self.ret_rms.update(self.ret.squeeze(1).cpu().numpy())
+
         if self.norm_ob:
             self.s = torch.clamp((self.s - torch.Tensor(self.ob_mean).type_as(self.s).unsqueeze(0)) / torch.sqrt(
                 torch.clamp(torch.Tensor(self.ob_var), 1e-4).type_as(self.s).unsqueeze(0)), -5, 5)
             self.goal = torch.clamp((self.goal - torch.Tensor(self.goal_mean).type_as(self.s).unsqueeze(0)) / torch.sqrt(
                 torch.clamp(torch.Tensor(self.goal_var), 1e-4).type_as(self.s).unsqueeze(0)), -5, 5)
+
+        if self.norm_rw and self.reward_type == "dense":
+            self.r = torch.clamp(self.r / torch.sqrt(torch.clamp(torch.Tensor([self.rw_var,]), 1e-8)).type_as(self.s),
+                                 -10., 10.)
 
         self.other_data = self.goal
 
@@ -280,6 +293,9 @@ class HTRPO(TRPO):
             self.goal_mean = self.ob_rms['desired_goal'].mean
             self.goal_var = self.ob_rms['desired_goal'].var
 
+        if self.norm_rw and self.reward_type == "dense":
+            self.rw_var = self.ret_rms.var
+
     def learn_htrpo(self):
         b_t = time.time()
         self.sample_batch()
@@ -299,11 +315,18 @@ class HTRPO(TRPO):
             self.ob_rms['observation'].update(self.s.cpu().numpy())
             self.ob_rms['desired_goal'].update(self.goal.cpu().numpy())
 
+        if self.norm_rw and self.reward_type == "dense":
+            self.ret_rms.update(self.ret.squeeze(1).cpu().numpy())
+
         if self.norm_ob:
             self.s = torch.clamp((self.s - torch.Tensor(self.ob_mean).type_as(self.s).unsqueeze(0)) / torch.sqrt(
                 torch.clamp(torch.Tensor(self.ob_var), 1e-4).type_as(self.s).unsqueeze(0)), -5, 5)
             self.goal = torch.clamp((self.goal - torch.Tensor(self.goal_mean).type_as(self.s).unsqueeze(0)) / torch.sqrt(
                 torch.clamp(torch.Tensor(self.goal_var), 1e-4).type_as(self.s).unsqueeze(0)), -5, 5)
+
+        if self.norm_rw and self.reward_type == "dense":
+            self.r = torch.clamp(self.r / torch.sqrt(torch.clamp(torch.Tensor([self.rw_var,]), 1e-8)).type_as(self.s),
+                                 -10., 10.)
 
         self.other_data = self.goal
 
@@ -357,6 +380,8 @@ class HTRPO(TRPO):
             self.ob_var = self.ob_rms['observation'].var
             self.goal_mean = self.ob_rms['desired_goal'].mean
             self.goal_var = self.ob_rms['desired_goal'].var
+        if self.norm_rw and self.reward_type == "dense":
+            self.rw_var = self.ret_rms.var
 
     def update_value(self, inds = None):
         if inds is None:
@@ -627,6 +652,9 @@ class HTRPO_Gaussian(HTRPO, TRPO_Gaussian):
             # Ng x T
             r_f = self.env.compute_reward(self.episodes[ep]['achieved_goal'].unsqueeze(0).repeat(n_g,1,1).cpu().numpy(),
                                           self.subgoals.unsqueeze(1).repeat(1,ep_len,1).cpu().numpy(), None)
+            if self.reward_type == "dense":
+                goal_dist = - r_f
+                r_f = -(goal_dist > 0.05).astype(np.float32)
             # Here, reward will be 0 when the goal is not achieved, else 1.
             r_f += 1
             # For negative episode, there is no positive reward, all are 0.
@@ -648,12 +676,19 @@ class HTRPO_Gaussian(HTRPO, TRPO_Gaussian):
             # filter out the episodes where at beginning, the goal is achieved.
             mask[l_f == 1] = 0
 
-            r_f = torch.Tensor(r_f).type_as(self.r)
+            if self.reward_type == "sparse":
+                r_f = torch.Tensor(r_f).type_as(self.r)
+                # Rewards are 0 and T - t_done + 1
+                # Ng x T
+                r_f[range(r_f.size(0)), l_f - 1] = (self.max_steps - l_f + 1).type_as(self.r)
+                r_f[neg_ep_inds] = 0
+            else:
+                r_f = torch.Tensor(-goal_dist).type_as(self.r)
 
-            # Rewards are 0 and T - t_done + 1
-            # Ng x T
-            r_f[range(r_f.size(0)), l_f - 1] = (self.max_steps - l_f + 1).type_as(self.r)
-            r_f[neg_ep_inds] = 0
+            ret_f = torch.rand(r_f.shape).zero_().type_as(r_f)
+            ret_f[:, r_f.shape[1] - 1] = r_f[:, r_f.shape[1] - 1]
+            for t in range(r_f.shape[1]-2, -1, -1):
+                ret_f[:, t] = self.gamma * ret_f[:, t+1] + r_f[:, t]
 
             d_f = self.episodes[ep]['done'].squeeze().repeat(n_g, 1)
             d_f[pos_ep_inds, l_f[pos_ep_inds] - 1] = 1
@@ -715,6 +750,7 @@ class HTRPO_Gaussian(HTRPO, TRPO_Gaussian):
             self.sigma = torch.cat((self.sigma, fake_sigma[mask]), dim=0)
 
             self.r = torch.cat((self.r, r_f.reshape(n_g * ep_len, 1)[mask]), dim=0)
+            self.ret = torch.cat((self.r, ret_f.reshape(n_g * ep_len, 1)[mask]), dim=0)
             self.done = torch.cat((self.done, d_f.reshape(n_g * ep_len, 1)[mask]), dim=0)
             self.logpac_old = torch.cat((self.logpac_old, fake_logpac.reshape(n_g * ep_len, 1)[mask]), dim=0)
 
@@ -736,6 +772,7 @@ class HTRPO_Gaussian(HTRPO, TRPO_Gaussian):
         self.s_ = torch.Tensor(size = (0,) + self.s_.size()[1:]).type_as(self.s_)
         self.a = torch.Tensor(size = (0,) + self.a.size()[1:]).type_as(self.a)
         self.r = torch.Tensor(size = (0,) + self.r.size()[1:]).type_as(self.r)
+        self.ret = torch.Tensor(size = (0,) + self.r.size()[1:]).type_as(self.r)
         self.done = torch.Tensor(size = (0,) + self.done.size()[1:]).type_as(self.done)
         self.goal = torch.Tensor(size = (0,) + self.goal.size()[1:]).type_as(self.goal)
         self.gamma_discount = torch.Tensor(size = (0,) + self.gamma_discount.size()[1:]).type_as(self.gamma_discount)
@@ -761,12 +798,13 @@ class HTRPO_Gaussian(HTRPO, TRPO_Gaussian):
         self.episodes = []
         endpoints = (0,) + tuple((torch.nonzero(self.done[:, 0] > 0) + 1).squeeze().cpu().numpy().tolist())
 
-        self.r += 1
-        suc_poses = torch.nonzero(self.r==1)[:, 0]
-        for suc_pos in suc_poses:
-            temp = suc_pos - torch.Tensor(endpoints).type_as(self.r) + 1
-            temp = temp[temp > 0]
-            self.r[suc_pos] = self.max_steps - torch.min(temp) + 1
+        if self.reward_type == "sparse":
+            self.r += 1
+            suc_poses = torch.nonzero(self.r==1)[:, 0]
+            for suc_pos in suc_poses:
+                temp = suc_pos - torch.Tensor(endpoints).type_as(self.r) + 1
+                temp = temp[temp > 0]
+                self.r[suc_pos] = self.max_steps - torch.min(temp) + 1
 
         # TODO: For gym envs, the episode will not end when the goal is achieved, deal with that!
         for i in range(len(endpoints) - 1):
@@ -779,6 +817,7 @@ class HTRPO_Gaussian(HTRPO, TRPO_Gaussian):
             episode['s'] = self.s[endpoints[i] : endpoints[i + 1]]
             episode['a'] = self.a[endpoints[i]: endpoints[i + 1]]
             episode['r'] = self.r[endpoints[i]: endpoints[i + 1]]
+            episode['ret'] = torch.cumsum(episode['r'], dim = 0)
             episode['done'] = self.done[endpoints[i]: endpoints[i + 1]]
             episode['s_'] = self.s_[endpoints[i]: endpoints[i + 1]]
             episode['logpac_old'] = self.logpac_old[endpoints[i]: endpoints[i + 1]]
@@ -793,6 +832,7 @@ class HTRPO_Gaussian(HTRPO, TRPO_Gaussian):
 
             self.episodes.append(episode)
 
+        self.ret = torch.cat([ep['ret'] for ep in self.episodes], dim = 0)
         # if len(self.episodes) > 0:
         self.gamma_discount = torch.cat([ep['gamma_discount'].squeeze(1) for ep in self.episodes], dim=0)
         self.n_traj += len(self.episodes)
@@ -910,6 +950,11 @@ class HTRPO_Softmax(HTRPO, TRPO_Softmax):
             r_f = self.env.compute_reward(
                 self.episodes[ep]['achieved_goal'].unsqueeze(0).repeat(n_g, 1, 1).cpu().numpy(),
                 self.subgoals.unsqueeze(1).repeat(1, ep_len, 1).cpu().numpy(), None)
+
+            if self.reward_type == "dense":
+                goal_dist = - r_f
+                r_f = -(goal_dist > 0.05).astype(np.float32)
+
             # Here, reward will be 0 when the goal is not achieved, else 1.
             r_f += 1
             # For negative episode, there is no positive reward, all are 0.
@@ -923,12 +968,20 @@ class HTRPO_Softmax(HTRPO, TRPO_Softmax):
             l_f[neg_ep_inds] = ep_len
             # lengths: Ng
             l_f = torch.Tensor(l_f).type_as(self.s).long()
-            r_f = torch.Tensor(r_f).type_as(self.r)
 
-            # Rewards are 0 and T - t_done + 1
-            # Ng x T
-            r_f[range(r_f.size(0)), l_f - 1] = (self.max_steps - l_f + 1).type_as(self.r)
-            r_f[neg_ep_inds] = 0
+            if self.reward_type == "sparse":
+                r_f = torch.Tensor(r_f).type_as(self.r)
+                # Rewards are 0 and T - t_done + 1
+                # Ng x T
+                r_f[range(r_f.size(0)), l_f - 1] = (self.max_steps - l_f + 1).type_as(self.r)
+                r_f[neg_ep_inds] = 0
+            else:
+                r_f = torch.Tensor(-goal_dist).type_as(self.r)
+
+            ret_f = torch.rand(r_f.shape).zero_().type_as(r_f)
+            ret_f[:, r_f.shape[1] - 1] = r_f[:, r_f.shape[1] - 1]
+            for t in range(r_f.shape[1] - 2, -1, -1):
+                ret_f[:, t] = self.gamma * ret_f[:, t + 1] + r_f[:, t]
 
             d_f = self.episodes[ep]['done'].squeeze().repeat(n_g, 1)
             d_f[pos_ep_inds, l_f[pos_ep_inds] - 1] = 1
@@ -937,7 +990,7 @@ class HTRPO_Softmax(HTRPO, TRPO_Softmax):
             mask = torch.Tensor(np.arange(1, ep_len + 1)).type_as(self.s).repeat(n_g, 1)
             mask[mask > l_f.type_as(self.s).unsqueeze(1)] = 0
             mask[mask > 0] = 1
-            # mask[l_f == 1] = 0
+            mask[l_f == 1] = 0
             h_ratios_mask[ep][:,:ep_len] = mask
 
             # in this case, the input state is the full state of the envs, which should be a vector.
@@ -995,6 +1048,7 @@ class HTRPO_Softmax(HTRPO, TRPO_Softmax):
             self.distri = torch.cat((self.distri, fake_distri[mask]), dim=0)
 
             self.r = torch.cat((self.r, r_f.reshape(n_g * ep_len, 1)[mask]), dim=0)
+            self.ret = torch.cat((self.r, ret_f.reshape(n_g * ep_len, 1)[mask]), dim=0)
             self.done = torch.cat((self.done, d_f.reshape(n_g * ep_len, 1)[mask]), dim=0)
             self.logpac_old = torch.cat((self.logpac_old, fake_logpac.reshape(n_g * ep_len, 1)[mask]), dim=0)
 
@@ -1016,6 +1070,7 @@ class HTRPO_Softmax(HTRPO, TRPO_Softmax):
         self.s_ = torch.Tensor(size = (0,) + self.s_.size()[1:]).type_as(self.s_)
         self.a = torch.Tensor(size = (0,) + self.a.size()[1:]).type_as(self.a)
         self.r = torch.Tensor(size = (0,) + self.r.size()[1:]).type_as(self.r)
+        self.ret = torch.Tensor(size=(0,) + self.r.size()[1:]).type_as(self.r)
         self.done = torch.Tensor(size = (0,) + self.done.size()[1:]).type_as(self.done)
         self.goal = torch.Tensor(size = (0,) + self.goal.size()[1:]).type_as(self.goal)
         self.gamma_discount = torch.Tensor(size = (0,) + self.gamma_discount.size()[1:]).type_as(self.gamma_discount)
@@ -1040,12 +1095,13 @@ class HTRPO_Softmax(HTRPO, TRPO_Softmax):
         self.episodes = []
         endpoints = (0,) + tuple((torch.nonzero(self.done[:, 0] > 0) + 1).squeeze().cpu().numpy().tolist())
 
-        self.r += 1
-        suc_poses = torch.nonzero(self.r==1)[:, 0]
-        for suc_pos in suc_poses:
-            temp = suc_pos - torch.Tensor(endpoints).type_as(self.r) + 1
-            temp = temp[temp > 0]
-            self.r[suc_pos] = self.max_steps - torch.min(temp) + 1
+        if self.reward_type == "sparse":
+            self.r += 1
+            suc_poses = torch.nonzero(self.r==1)[:, 0]
+            for suc_pos in suc_poses:
+                temp = suc_pos - torch.Tensor(endpoints).type_as(self.r) + 1
+                temp = temp[temp > 0]
+                self.r[suc_pos] = self.max_steps - torch.min(temp) + 1
 
         for i in range(len(endpoints) - 1):
 
@@ -1057,6 +1113,7 @@ class HTRPO_Softmax(HTRPO, TRPO_Softmax):
             episode['s'] = self.s[endpoints[i] : endpoints[i + 1]]
             episode['a'] = self.a[endpoints[i]: endpoints[i + 1]]
             episode['r'] = self.r[endpoints[i]: endpoints[i + 1]]
+            episode['ret'] = torch.cumsum(episode['r'], dim = 0)
             episode['done'] = self.done[endpoints[i]: endpoints[i + 1]]
             episode['s_'] = self.s_[endpoints[i]: endpoints[i + 1]]
             episode['logpac_old'] = self.logpac_old[endpoints[i]: endpoints[i + 1]]
@@ -1069,6 +1126,7 @@ class HTRPO_Softmax(HTRPO, TRPO_Softmax):
                 self.s)).unsqueeze(1)
             self.episodes.append(episode)
 
+        self.ret = torch.cat([ep['ret'] for ep in self.episodes], dim=0)
         self.gamma_discount = torch.cat([ep['gamma_discount'].squeeze(1) for ep in self.episodes], dim=0)
         self.n_traj += len(self.episodes)
 

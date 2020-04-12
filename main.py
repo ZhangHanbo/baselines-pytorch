@@ -28,7 +28,8 @@ from configs import NAF_Reacherv2, NAF_Pendulumv0, AdaptiveKLPPO_Hopperv2, \
     HTRPO_FetchReachDiscrete, HTRPO_SawyerLift, HTRPO_SawyerPickPlaceCereal, \
     HTRPO_SawyerPickPlaceCan, HTRPO_SawyerPickPlaceBread, HTRPO_HandManipulateBlockRotateZv0,\
     HTRPO_HandReachv0, HTRPO_FetchSlideDiscrete, HTRPO_MsPacman, HTRPO_FlipBit32,\
-    HTRPO_FlipBit48, HTRPO_SawyerPickPlaceMilk
+    HTRPO_FlipBit48, HTRPO_SawyerPickPlaceMilk, TRPO_FetchReachv1, TRPO_FetchPushv1,\
+    HTRPO_FetchPushDensev1, HTRPO_FetchReachDensev1, HTRPO_FetchSlideDensev1
 
 torch.set_default_tensor_type(torch.FloatTensor)
 
@@ -121,10 +122,10 @@ if __name__ == "__main__":
     else:
         assert 0, "Invalid Environment"
 
-    if env_type not in {"mujoco", "robotics", "robotsuite"}:
-        print("The chosen env dose not support normalization. No normalization is applied.")
-        configs['norm_ob'] = False
-        configs['norm_rw'] = False
+    # if env_type not in {"mujoco", "robotics", "robotsuite"}:
+    #     print("The chosen env dose not support normalization. No normalization is applied.")
+    #     configs['norm_ob'] = False
+    #     configs['norm_rw'] = False
 
     logger = SummaryWriter(comment = args.alg + "-" + args.env)
     output_dir = os.path.join("output", "models", args.alg)
@@ -139,6 +140,7 @@ if __name__ == "__main__":
     configs['dicrete_action'] = DICRETE_ACTION_SPACE
     if n_actions:
         configs['n_actions'] = n_actions
+    configs['reward_type'] = args.reward
 
     # for hindsight algorithms, init goal space of the environment.
     if args.alg in {"HTRPO"}:
