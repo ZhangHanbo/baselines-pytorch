@@ -23,6 +23,7 @@ class FlipBit(object):
         self.acc_rew = 0
         self.n_steps = 0
         self.state = np.zeros(self.d_observations, dtype=np.int32)
+        # self.state = np.random.randint(0, 2, size=self.d_observations, dtype=np.int32)
         # self.state = np.random.randint(0, 2, size=self.d_observations)
         self.goal = np.random.randint(0, 2, size=self.d_goals, dtype=np.int32)
         state, goal = np.array(self.state), np.array(self.goal)

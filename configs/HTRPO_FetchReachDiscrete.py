@@ -20,6 +20,7 @@ HTRPOconfig = {
     'sampled_goal_num': 100,
     'value_type': None,
     'using_original_data': False,
-    'using_kl2':True
+    'using_kl2':True,
+    'using_hgf_goals': True
 }
 HTRPOconfig['memory_size'] = HTRPOconfig['steps_per_iter']

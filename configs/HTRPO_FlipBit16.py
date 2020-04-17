@@ -1,7 +1,7 @@
 HTRPOconfig = {
     'cg_damping': 1e-2,
     'GAE_lambda':0.,
-    'reward_decay': 0.9,
+    'reward_decay': 0.95,
     'max_kl_divergence': 0.001,
     'goal_space': None,
     'per_decision': True,
@@ -20,6 +20,6 @@ HTRPOconfig = {
     'sampled_goal_num': None,
     'value_type': 'FC',
     'using_original_data': False,
-    'using_kl2':True
+    'using_kl2':True,
 }
 HTRPOconfig['memory_size'] = HTRPOconfig['steps_per_iter']

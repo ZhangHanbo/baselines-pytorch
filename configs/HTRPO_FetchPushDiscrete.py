@@ -1,3 +1,5 @@
+import torch.nn.functional as F
+
 HTRPOconfig = {
     'reward_decay': 0.98,
     'cg_damping': 1e-3,
@@ -15,9 +17,10 @@ HTRPOconfig = {
     'lr': 5e-4,
     # NEED TO FOCUS ON THESE PARAMETERS
     'using_hpg': False,
-    'steps_per_iter': 3200,
+    'steps_per_iter': 1600,
     'sampled_goal_num': 100,
     'value_type': None,
+    'act_func': F.tanh,
     'using_original_data': False,
     'using_kl2':True
 }

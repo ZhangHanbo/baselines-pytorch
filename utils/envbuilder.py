@@ -87,7 +87,7 @@ def build_env(args):
             env = make_vec_env(env_id, env_type, nenv, seed)
             env = VecFrameStack(env, frame_stack_size)
     else:
-        flatten_dict_observations = alg not in {'HTRPO'}
+        flatten_dict_observations = alg not in {'HTRPO', 'HPG'}
         env = make_vec_env(env_id, env_type, args.num_envs or 1, seed,
                            flatten_dict_observations=flatten_dict_observations, render = args.render, reward = args.reward)
 

@@ -17,6 +17,7 @@ from agents.NAF import run_naf_train
 from agents.DDPG import run_ddpg_train
 from agents.TD3 import run_td3_train
 from agents.HTRPO import run_htrpo_train
+from agents.HPG import run_hpg_train
 from agents.config import *
 from configs import NAF_Reacherv2, NAF_Pendulumv0, AdaptiveKLPPO_Hopperv2, \
     AdaptiveKLPPO_Reacherv2, DDPG_Reacherv2, PG_Hopperv2, \
@@ -29,7 +30,8 @@ from configs import NAF_Reacherv2, NAF_Pendulumv0, AdaptiveKLPPO_Hopperv2, \
     HTRPO_SawyerPickPlaceCan, HTRPO_SawyerPickPlaceBread, HTRPO_HandManipulateBlockRotateZv0,\
     HTRPO_HandReachv0, HTRPO_FetchSlideDiscrete, HTRPO_MsPacman, HTRPO_FlipBit32,\
     HTRPO_FlipBit48, HTRPO_SawyerPickPlaceMilk, TRPO_FetchReachv1, TRPO_FetchPushv1,\
-    HTRPO_FetchPushDensev1, HTRPO_FetchReachDensev1, HTRPO_FetchSlideDensev1
+    HTRPO_FetchPushDensev1, HTRPO_FetchReachDensev1, HTRPO_FetchSlideDensev1, \
+    HPG_FlipBit16, HPG_FetchPushv1
 
 torch.set_default_tensor_type(torch.FloatTensor)
 
@@ -93,7 +95,7 @@ if __name__ == "__main__":
     args = arg_parser()
 
     configs = {}
-    if args.alg in ("TD3", "NAF", "DDPG", "DQN", "DDQN", "DuelingDQN", "HTRPO"):
+    if args.alg in ("TD3", "NAF", "DDPG", "DQN", "DDQN", "DuelingDQN", "HTRPO", "HPG"):
         print("The chosen alg is off-policy. Stored transitions are not normalized.")
         configs['norm_ob'] = not args.unnormobs
         configs['norm_rw'] = not args.unnormret
@@ -122,10 +124,9 @@ if __name__ == "__main__":
     else:
         assert 0, "Invalid Environment"
 
-    # if env_type not in {"mujoco", "robotics", "robotsuite"}:
-    #     print("The chosen env dose not support normalization. No normalization is applied.")
-    #     configs['norm_ob'] = False
-    #     configs['norm_rw'] = False
+    if env_type not in {"mujoco", "robotics", "robotsuite"}:
+        print("The chosen env dose not support input normalization. No normalization is applied.")
+        configs['norm_ob'] = False
 
     logger = SummaryWriter(comment = args.alg + "-" + args.env)
     output_dir = os.path.join("output", "models", args.alg)
@@ -143,7 +144,7 @@ if __name__ == "__main__":
     configs['reward_type'] = args.reward
 
     # for hindsight algorithms, init goal space of the environment.
-    if args.alg in {"HTRPO"}:
+    if args.alg in {"HTRPO", "HPG"}:
         configs['other_data'] = env.reset()
         assert isinstance(configs['other_data'], dict), \
             "Please check the environment settings, hindsight algorithms only support goal conditioned tasks."
@@ -152,7 +153,7 @@ if __name__ == "__main__":
         configs['env'] = env
 
     # init agent
-    if args.alg in ("PG", "NPG", "TRPO", "PPO", "AdaptiveKLPPO", "HTRPO"):
+    if args.alg in ("PG", "NPG", "TRPO", "PPO", "AdaptiveKLPPO", "HTRPO", "HPG"):
         if DICRETE_ACTION_SPACE:
             RL_brain = eval("agents." + args.alg + "_Softmax(configs)")
         else:
@@ -168,7 +169,7 @@ if __name__ == "__main__":
         RL_brain.load_model(load_path=output_dir, load_point=args.checkpoint)
 
     if args.usedemo:
-        assert args.alg in {"HTRPO"}, "Imitation learning warm-up only supports HTRPO."
+        assert args.alg in {"HTRPO", "HPG"}, "Imitation learning warm-up only supports HTRPO and HPG."
         demofile = os.path.join(args.demopath, "demo.pkl")
         if not os.path.exists(demofile):
             raise RuntimeError("Demo file " + demofile + " does not exist.")
@@ -200,6 +201,10 @@ if __name__ == "__main__":
         trained_brain = run_td3_train(env, RL_brain, args.num_steps, logger, args.display)
     elif args.alg == 'HTRPO':
         trained_brain = run_htrpo_train(env, RL_brain, args.num_steps, logger,
+                                        eval_interval = args.eval_interval if args.eval_interval > 0 else None,
+                                        num_evals = args.num_evals, render=args.render)
+    elif args.alg == 'HPG':
+        trained_brain = run_hpg_train(env, RL_brain, args.num_steps, logger,
                                         eval_interval = args.eval_interval if args.eval_interval > 0 else None,
                                         num_evals = args.num_evals, render=args.render)
     else:

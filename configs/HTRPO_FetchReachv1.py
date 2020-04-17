@@ -23,6 +23,6 @@ HTRPOconfig = {
     'value_type': 'FC',
     'using_original_data': False,
     'out_act_func': F.tanh,
-    'using_kl2':True
+    'using_kl2':True,
 }
 HTRPOconfig['memory_size'] = HTRPOconfig['steps_per_iter']

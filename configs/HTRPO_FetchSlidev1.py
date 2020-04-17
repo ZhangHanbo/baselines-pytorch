@@ -5,7 +5,7 @@ HTRPOconfig = {
     'reward_decay': 0.98,
     'GAE_lambda': 0.,
     'max_kl_divergence': 2e-5,
-    'entropy_weight': 1e-4,
+    'entropy_weight': 0,
     'per_decision': True,
     'weighted_is': True,
     'using_active_goals' : True,
