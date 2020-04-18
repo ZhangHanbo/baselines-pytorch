@@ -1,5 +1,5 @@
 HTRPOconfig = {
-    'cg_damping': 1e-2,
+    'cg_damping': 1e-3,
     'GAE_lambda':0.,
     'reward_decay': 0.95,
     'max_kl_divergence': 0.001,

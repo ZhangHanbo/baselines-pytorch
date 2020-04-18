@@ -124,9 +124,9 @@ if __name__ == "__main__":
     else:
         assert 0, "Invalid Environment"
 
-    if env_type not in {"mujoco", "robotics", "robotsuite"}:
-        print("The chosen env dose not support input normalization. No normalization is applied.")
-        configs['norm_ob'] = False
+    # if env_type not in {"mujoco", "robotics", "robotsuite"}:
+    #     print("The chosen env dose not support input normalization. No normalization is applied.")
+    #     configs['norm_ob'] = False
 
     logger = SummaryWriter(comment = args.alg + "-" + args.env)
     output_dir = os.path.join("output", "models", args.alg)

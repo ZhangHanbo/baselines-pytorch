@@ -19,7 +19,7 @@ HTRPOconfig = {
     'using_hpg': False,
     'steps_per_iter': 1600,
     'sampled_goal_num': 100,
-    'value_type': None,
+    'value_type': 'FC',
     'act_func': F.tanh,
     'using_original_data': False,
     'using_kl2':True

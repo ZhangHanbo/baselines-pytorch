@@ -42,6 +42,7 @@ Vanilla Policy Gradient| -
 Natual Policy Gradient | -
 Trust Region Policy Optimization | ✔️
 Proximal Policy Optimization | ✔️
+Hindsight Policy Gradients | ️✔️
 Hindsight Trust Region Policy Gradient | ✔️
 
 ### Examples
@@ -64,9 +65,7 @@ python main.py --alg HTRPO --env FlipBit8 --unnormobs --num_steps 50000 --num_ev
 
 1. DDPG, TD3 and NAF should turn on the switches named "unnormobs" and "unnormret" during training. The normalization is not optimized for these 3 methods by now and hense, with observation normalization or return normalization, the performance will be much lower than the baselines.
 
-2. We propose HTRPO for sparse reward reinforcement learning, and as baselines, TRPO and HPG for sparse reward are also implemented. To run HTRPO, you need to follow the above instruction. To run HPG, you only need to modify the hyperparameter "using_hpg" to "True" in the corresponding config file (e.g. for FetchPush-v1, the config file is configs/HTRPO_FetchPushv1.py). To run HTRPO, you need to modify the hyperparameter "sampled_goal_num" to 0 and "using_original_data" to "True", which means that the policy will be trained using only the original collected data without any modification.
-
-3. All the experimental results compared with baselines will be continuously updated when I have time.
+2. All the experimental results compared with baselines will be continuously updated when I have time.
 
 ### Environment List
 
