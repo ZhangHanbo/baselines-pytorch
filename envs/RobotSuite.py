@@ -9,16 +9,10 @@ except Exception as e:
 import os
 
 from utils.vecenv import DummyVecEnv, VecNormalize
-import gym
-from gym.wrappers import FlattenDictWrapper
 
-from utils.atariwrapper import make_atari, wrap_deepmind
 import numpy as np
 import random
 from gym import spaces
-from utils.monitor import Monitor
-
-from collections import OrderedDict
 
 try:
     from mpi4py import MPI

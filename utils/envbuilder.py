@@ -2,19 +2,15 @@
 from .vecenv import DummyVecEnv, VecNormalize, VecFrameStack
 from collections import defaultdict
 import gym
-from gym.wrappers import FlattenDictWrapper
 try:
     import robosuite as robst
 except Exception as e:
     "Could not find package robosuite. All relevant environments cannot be used."
 import multiprocessing
-import sys
 import re
 from .atariwrapper import make_atari, wrap_deepmind
 import numpy as np
 import random
-import envs
-from gym import spaces
 from .monitor import Monitor
 
 try:
@@ -35,7 +31,7 @@ robotsuite_envs = {"BaxterLift", "BaxterPegInHole", "SawyerLift", "SawyerNutAsse
 _game_envs = defaultdict(set)
 for env in gym.envs.registry.all():
     # TODO: solve this with regexes
-    env_type = env._entry_point.split(':')[0].split('.')[-1]
+    env_type = env.entry_point.split(':')[0].split('.')[-1]
     _game_envs[env_type].add(env.id)
 
 def get_env_type(args):
@@ -48,7 +44,7 @@ def get_env_type(args):
 
     # Re-parse the gym registry, since we could have new envs since last time.
     for env in gym.envs.registry.all():
-        env_type = env._entry_point.split(':')[0].split('.')[-1]
+        env_type = env.entry_point.split(':')[0].split('.')[-1]
         _game_envs[env_type].add(env.id)  # This is a set so add is idempotent
 
     if env_id in _game_envs.keys():
