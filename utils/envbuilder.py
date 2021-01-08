@@ -1,4 +1,4 @@
-from utils.vecenv import DummyVecEnv, SubprocVecEnv, VecNormalize, VecFrameStack
+from utils.vec_envs import DummyVecEnv, SubprocVecEnv, VecNormalize, VecFrameStack
 from collections import defaultdict
 import gym
 import myenvs
@@ -77,8 +77,8 @@ def build_env(args):
         env = make_vec_env(env_id, env_type, args.num_envs or 1, seed,
                            flatten_dict_observations=flatten_dict_observations, render = args.render, reward = args.reward)
 
-        if env_type in {'mujoco', 'robotics', 'robotsuite'} :
-           env = VecNormalize(env, ob=not args.unnormobs, ret=not args.unnormret, act=not args.unnormact)
+        if env_type in {'mujoco', 'robotics', 'robotsuite'} and alg not in {'HTRPO', 'HPG'}:
+           env = VecNormalize(env, norm_obs=not args.unnormobs, norm_reward=not args.unnormret)
 
     return env, env_type, env_id
 

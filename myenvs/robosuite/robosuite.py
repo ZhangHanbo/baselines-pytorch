@@ -8,7 +8,7 @@ except Exception as e:
 
 import os
 
-from utils.vecenv import DummyVecEnv, VecNormalize
+from utils.vec_envs import DummyVecEnv, VecNormalize
 
 import numpy as np
 import random

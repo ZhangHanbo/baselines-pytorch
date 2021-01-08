@@ -7,7 +7,7 @@ from tensorboardX import SummaryWriter
 from collections import deque
 
 from utils.envbuilder import build_env, set_global_seeds
-from utils.vecenv import space_dim
+from utils.vec_envs import space_dim
 from agents import *
 from agents.config import *
 from configs import CONFIGS
@@ -93,13 +93,12 @@ def imitation_pretrain():
 if __name__ == "__main__":
     args = arg_parser()
 
-    configs = {}
-    configs['norm_ob'] = not args.unnormobs
-    configs['norm_rw'] = not args.unnormret
-    # if args.alg in ("TD3", "NAF", "DDPG", "DQN", "DDQN", "DuelingDQN", "HTRPO", "HPG"):
-    #     print("The chosen alg is off-policy. Stored transitions are not normalized.")
-    #     args.unnormobs = True
-    #     args.unnormret = True
+    configs = {
+        "norm_ob": not args.unnormobs,
+        "norm_rw": not args.unnormret,
+    }
+    # TODO: REMOVE THE DISABLING OF NORMALIZATION FOR TD3, NAF and DDPG.
+    #  IMPROVEMENTS SHOULD BE MADE FOR THESE ALGORITHMS.
 
     # build game environment
     env, env_type, env_id = build_env(args)

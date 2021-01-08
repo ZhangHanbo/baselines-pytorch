@@ -7,7 +7,7 @@ import numpy as np
 from utils.mathutils import explained_variance
 from collections import deque
 import copy
-from utils.vecenv import space_dim
+from utils.vec_envs import space_dim
 from utils.rms import RunningMeanStd
 import pickle
 import os
