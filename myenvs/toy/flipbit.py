@@ -2,8 +2,9 @@ import re
 import numpy as np
 from scipy.sparse.csgraph import shortest_path
 from gym import spaces
+
 class FlipBit(object):
-    def __init__(self, n_bits = 8, reward = 'sparse'):
+    def __init__(self, n_bits = 8, reward_type = 'sparse'):
         self.n_actions = n_bits
         self.action_space = spaces.Discrete(n_bits)
         self.d_observations = n_bits
@@ -13,9 +14,8 @@ class FlipBit(object):
             "desired_goal": spaces.MultiBinary(n_bits),
             "achieved_goal": spaces.MultiBinary(n_bits),
         })
-        self.max_episode_steps = n_bits
 
-        self.reward_type = reward
+        self.reward_type = reward_type
 
         self.acc_rew = 0
 
@@ -51,7 +51,7 @@ class FlipBit(object):
                 reward = -1.
         self.acc_rew += reward
 
-        done = (self.max_episode_steps <= self.n_steps) or (reward >= 0.)
+        done = reward >= 0.
 
         obs = {
             "observation": self.state,
@@ -85,18 +85,5 @@ class FlipBit(object):
     def __repr__(self):
         return 'State: {0}. Goal: {1}.'.format(self.state, self.goal)
 
-class FlipBit8(FlipBit):
-    def __init__(self, reward = 'sparse'):
-        super(FlipBit8, self).__init__(n_bits = 8, reward = reward)
-
-class FlipBit16(FlipBit):
-    def __init__(self, reward = 'sparse'):
-        super(FlipBit16, self).__init__(n_bits = 16, reward = reward)
-
-class FlipBit32(FlipBit):
-    def __init__(self, reward = 'sparse'):
-        super(FlipBit32, self).__init__(n_bits = 32, reward = reward)
-
-class FlipBit48(FlipBit):
-    def __init__(self, reward = 'sparse'):
-        super(FlipBit48, self).__init__(n_bits = 48, reward = reward)
+    def unwrapped(self):
+        return self

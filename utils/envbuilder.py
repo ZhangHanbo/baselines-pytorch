@@ -1,58 +1,51 @@
-
-from .vecenv import DummyVecEnv, VecNormalize, VecFrameStack
+from utils.vecenv import DummyVecEnv, VecNormalize, VecFrameStack
 from collections import defaultdict
 import gym
+import myenvs
+
 try:
     import robosuite as robst
 except Exception as e:
     "Could not find package robosuite. All relevant environments cannot be used."
 import multiprocessing
 import re
-from .atariwrapper import make_atari, wrap_deepmind
+from utils.atariwrapper import make_atari, wrap_deepmind
 import numpy as np
 import random
-from .monitor import Monitor
+from utils.monitor import Monitor
 
 try:
     from mpi4py import MPI
 except ImportError:
     MPI = None
 
-HER_ENV_LIST = {"FlipBit8", "FlipBit16", "FlipBit32", "FlipBit48", "EmptyMaze", "FourRoomMaze", "FetchPushDiscrete",
-                "FetchReachDiscrete", "FetchSlideDiscrete", "MsPacman"}
-my_own_envs = {"BaxterReacher-v0", "FlipBit8", "FlipBit16", "FlipBit32", "FlipBit48", "EmptyMaze", "FourRoomMaze",
-               "FetchPushDiscrete", "FetchReachDiscrete", "FetchSlideDiscrete", "AntReacher", "Reacher",
-               "MsPacman"}
-robotsuite_envs = {"BaxterLift", "BaxterPegInHole", "SawyerLift", "SawyerNutAssembly", "SawyerNutAssemblyRound",
-                   "SawyerNutAssemblySingle", "SawyerNutAssemblySquare", "SawyerPickPlace", "SawyerPickPlaceBread",
-                   "SawyerPickPlaceCan", "SawyerPickPlaceCereal", "SawyerPickPlaceMilk", "SawyerPickPlaceSingle",
-                   "SawyerStack"}
-
 _game_envs = defaultdict(set)
 for env in gym.envs.registry.all():
-    # TODO: solve this with regexes
     env_type = env.entry_point.split(':')[0].split('.')[-1]
     _game_envs[env_type].add(env.id)
+
+_my_game_envs = defaultdict(set)
+for env in gym.envs.registry.all():
+    env_type = env.entry_point.split(':')[0].split('.')[-1]
+    _my_game_envs[env_type].add(env.id)
 
 def get_env_type(args):
     env_id = args.env
 
-    if env_id in my_own_envs:
-        return "myown", env_id
-    elif env_id in robotsuite_envs:
-        return "robotsuite", env_id
-
-    # Re-parse the gym registry, since we could have new envs since last time.
-    for env in gym.envs.registry.all():
-        env_type = env.entry_point.split(':')[0].split('.')[-1]
-        _game_envs[env_type].add(env.id)  # This is a set so add is idempotent
-
     if env_id in _game_envs.keys():
+        env_type = env_id
+        env_id = [g for g in _game_envs[env_type]][0]
+    elif env_id in _my_game_envs.keys():
         env_type = env_id
         env_id = [g for g in _game_envs[env_type]][0]
     else:
         env_type = None
         for g, e in _game_envs.items():
+            if env_id in e:
+                env_type = g
+                break
+        # my own env has higher priority
+        for g, e in _my_game_envs.items():
             if env_id in e:
                 env_type = g
                 break
@@ -69,9 +62,6 @@ def build_env(args):
     seed = args.seed
 
     env_type, env_id = get_env_type(args)
-
-    if env_id == "BaxterReacher-v0":
-        return eval("envs." + "".join(env_id.split("-")) + "()"), env_type, env_id
 
     if env_type in {'atari'}:
         if alg == 'DQN' or alg == 'DDQN' or alg == 'DuelingDQN' :
@@ -129,10 +119,9 @@ def make_env(env_id, env_type, subrank=0, seed=None, wrapper_kwargs=None,
     wrapper_kwargs = wrapper_kwargs or {}
     if env_type == 'atari':
         env = make_atari(env_id)
-    elif env_type == 'myown':
-        env = eval("envs." + "".join(env_id.split("-")) + "(reward = reward)")
-    elif env_type == 'robotsuite':
-        env = eval("envs." + "".join(env_id.split("-")) + "(render = render, reward = reward)")
+    elif env_type in _my_game_envs.keys():
+        env = myenvs.make(env_id)
+        env.max_episode_steps = env.spec.max_episode_steps
     else:
         env = gym.make(env_id)
         env.max_episode_steps = env.spec.max_episode_steps
@@ -145,8 +134,7 @@ def make_env(env_id, env_type, subrank=0, seed=None, wrapper_kwargs=None,
         env = gym.wrappers.FlattenDictWrapper(env, dict_keys=keys)
 
     env.seed(seed + subrank if seed is not None else None)
-    if env_id not in my_own_envs and env_id not in robotsuite_envs:
-        env = Monitor(env, allow_early_resets=True)
+    env = Monitor(env, allow_early_resets=True)
 
     if env_type == 'atari':
         env = wrap_deepmind(env, **wrapper_kwargs)

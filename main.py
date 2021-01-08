@@ -19,19 +19,7 @@ from agents.TD3 import run_td3_train
 from agents.HTRPO import run_htrpo_train
 from agents.HPG import run_hpg_train
 from agents.config import *
-from configs import NAF_Reacherv2, NAF_Pendulumv0, AdaptiveKLPPO_Hopperv2, \
-    AdaptiveKLPPO_Reacherv2, DDPG_Reacherv2, PG_Hopperv2, \
-    PPO_Hopperv2, PPO_Reacherv2, TRPO_Swimmerv2, NPG_Hopperv2, \
-    TRPO_BaxterReacherv0, TRPO_Hopperv2, TRPO_Walker2dv1, \
-    DDPG_Swimmerv2, DDPG_Hopperv2, DDPG_Pendulumv0, HTRPO_FlipBit8, HTRPO_FlipBit16,\
-    HTRPO_EmptyMaze, HTRPO_FourRoomMaze, HTRPO_FetchPushv1, HTRPO_FetchReachv1, \
-    HTRPO_FetchSlidev1, HTRPO_FetchPushDiscrete, HTRPO_FetchPickAndPlacev1,\
-    HTRPO_FetchReachDiscrete, HTRPO_SawyerLift, HTRPO_SawyerPickPlaceCereal, \
-    HTRPO_SawyerPickPlaceCan, HTRPO_SawyerPickPlaceBread, HTRPO_HandManipulateBlockRotateZv0,\
-    HTRPO_HandReachv0, HTRPO_FetchSlideDiscrete, HTRPO_MsPacman, HTRPO_FlipBit32,\
-    HTRPO_FlipBit48, HTRPO_SawyerPickPlaceMilk, TRPO_FetchReachv1, TRPO_FetchPushv1,\
-    HTRPO_FetchPushDensev1, HTRPO_FetchReachDensev1, HTRPO_FetchSlideDensev1, \
-    HPG_FlipBit16, HPG_FetchPushv1
+from configs import CONFIGS
 
 torch.set_default_tensor_type(torch.FloatTensor)
 
@@ -106,7 +94,6 @@ if __name__ == "__main__":
     env, env_type, env_id = build_env(args)
     env_obs_space = env.observation_space
     env_act_space = env.action_space
-    # TODO: DEAL WITH DICT OBSERVATION SPACE, FOR EXAMPLE, IN TRPO OR DDPG.
     n_states = space_dim(env_obs_space)
 
     if isinstance(env_act_space, spaces.Discrete):
@@ -134,8 +121,8 @@ if __name__ == "__main__":
         os.makedirs(output_dir)
 
     # initialize configurations
-    if os.path.exists(os.path.join("configs", args.alg + "_" + "".join(args.env.split("-")) + '.py')):
-        configs.update(eval(args.alg + "_" + "".join(args.env.split("-")) + "." + args.alg + "config"))
+    env_id_for_cfg = "".join(args.env.split("-"))
+    configs.update(eval("CONFIGS[{}][{}].{}config".format(args.alg, env_id_for_cfg, args.alg)))
     configs['n_states'] = n_states
     configs['n_action_dims'] = n_action_dims
     configs['dicrete_action'] = DICRETE_ACTION_SPACE
@@ -168,21 +155,21 @@ if __name__ == "__main__":
     if args.resume:
         RL_brain.load_model(load_path=output_dir, load_point=args.checkpoint)
 
-    if args.usedemo:
-        assert args.alg in {"HTRPO", "HPG"}, "Imitation learning warm-up only supports HTRPO and HPG."
-        demofile = os.path.join(args.demopath, "demo.pkl")
-        if not os.path.exists(demofile):
-            raise RuntimeError("Demo file " + demofile + " does not exist.")
-        train_configs = {
-            "batch_size": 100,
-            "iter_num": 0,
-            "num_ep_selected": 225, # from the setting of IRIS
-            "using_act_norm":True
-        }
-        info = RL_brain.pretrain_policy_use_demos(demofile, train_configs)
-        if info["action_mean"] is not None and info["action_std"] is not None:
-            env.a_mean = info["action_mean"]
-            env.a_std = info["action_std"]
+    # if args.usedemo:
+    #     assert args.alg in {"HTRPO", "HPG"}, "Imitation learning warm-up only supports HTRPO and HPG."
+    #     demofile = os.path.join(args.demopath, "demo.pkl")
+    #     if not os.path.exists(demofile):
+    #         raise RuntimeError("Demo file " + demofile + " does not exist.")
+    #     train_configs = {
+    #         "batch_size": 100,
+    #         "iter_num": 0,
+    #         "num_ep_selected": 225, # from the setting of IRIS
+    #         "using_act_norm":True
+    #     }
+    #     info = RL_brain.pretrain_policy_use_demos(demofile, train_configs)
+    #     if info["action_mean"] is not None and info["action_std"] is not None:
+    #         env.a_mean = info["action_mean"]
+    #         env.a_std = info["action_std"]
 
     # training
     if args.alg == "PPO" or args.alg == "AdaptiveKLPPO":

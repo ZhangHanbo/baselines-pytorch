@@ -251,117 +251,117 @@ class HPG_Gaussian(HPG, PG_Gaussian):
                 torch.clamp(torch.Tensor(self.goal_var), 1e-4).type_as(s).unsqueeze(0)), -5, 5)
         return PG_Gaussian.choose_action(self, s, other_data, greedy)
 
-    def pretrain_policy_use_demos(self, demopath, train_configs, gym_states = True):
-
-        # demopath is a directory including training_data.pkl
-        with open(demopath, "rb") as f:
-            demos = pickle.load(f)
-
-        # load data
-        if gym_states:
-            states = [demos[i]["gym_observations"] for i in range(len(demos))]
-        else:
-            states = [demos[i]["states"] for i in range(len(demos))]
-        actions = [demos[i]["actions"] for i in range(len(demos))]
-        gripper_actuations = [demos[i]["gripper_actuations"] for i in range(len(demos))]
-        state_lens_sort_ind = list(np.argsort([s.shape[0] for s in states]))
-        if train_configs["num_ep_selected"]:
-            state_lens_sort_ind = state_lens_sort_ind[:train_configs["num_ep_selected"]]
-        goals = [demos[i]["achieved_goals"] for i in range(len(demos))]
-        assert len(states) == len(actions) == len(goals), "sizes of states, actions and goals do not match."
-
-        data_size = sum([states[i].shape[0] for i in state_lens_sort_ind])
-        demo_ends = np.cumsum([states[i].shape[0] for i in state_lens_sort_ind])
-        demo_ends = np.concatenate([demo_ends[j] * np.ones(states[i].shape[0]) for j, i in enumerate(state_lens_sort_ind)])
-
-        # dataset initialization
-        all_data_states = np.concatenate([states[i] for i in state_lens_sort_ind], axis=0)
-
-        # normalized action can result in better performance
-        all_data_actions = np.concatenate([actions[i] for i in state_lens_sort_ind], axis=0)
-        all_data_grippers = np.concatenate([gripper_actuations[i] for i in state_lens_sort_ind], axis=0)
-        all_data_actions = np.concatenate((all_data_actions, all_data_grippers), axis=1)
-
-        action_mean = None
-        action_std = None
-        if train_configs["using_act_norm"]:
-            action_mean, action_std = np.mean(all_data_actions, axis=0), np.std(all_data_actions, axis=0)
-            all_data_actions -= action_mean
-            all_data_actions /= action_std
-
-        all_data_goals = np.concatenate([goals[i] for i in state_lens_sort_ind], axis=0)
-
-        if self.norm_ob:
-            self.ob_rms['observation'].update(all_data_states)
-            self.ob_rms['desired_goal'].update(all_data_goals)
-            self.ob_mean = self.ob_rms['observation'].mean
-            self.ob_var = self.ob_rms['observation'].var
-            self.goal_mean = self.ob_rms['desired_goal'].mean
-            self.goal_var = self.ob_rms['desired_goal'].var
-
-        loss_fn = nn.MSELoss()
-
-        for iter in range(train_configs["iter_num"]):
-
-            goal_inds = []
-            for i in range(data_size):
-                if i + 1 < demo_ends[i]:
-                    goal_ind = np.random.randint(low=i + 1, high=demo_ends[i])
-                else:
-                    goal_ind = -1
-                goal_inds.append(goal_ind)
-            goal_inds = np.array(goal_inds, dtype=np.int32)
-
-            inds = [i for i in range((goal_inds >= 0).sum())]
-            random.shuffle(inds)
-
-            data_goals = all_data_goals[goal_inds[goal_inds >= 0]]
-            data_states = all_data_states[goal_inds >= 0]
-            data_actions = all_data_actions[goal_inds >= 0]
-
-            loss_show = 0
-            # training
-            for start in range(0, data_states.shape[0], train_configs["batch_size"]):
-                end = min(start + train_configs["batch_size"], data_states.shape[0])
-                state_batch = data_states[inds[start: end]]
-                action_batch = data_actions[inds[start: end]]
-                goal_batch = data_goals[inds[start: end]]
-
-                self.s = self.s.resize_(state_batch.shape).copy_(torch.Tensor(state_batch))
-                self.goal = torch.Tensor(goal_batch).type_as(self.s)
-
-                if self.norm_ob:
-                    self.s = torch.clamp(
-                        (self.s - torch.Tensor(self.ob_mean).type_as(self.s).unsqueeze(0)) / torch.sqrt(
-                            torch.clamp(torch.Tensor(self.ob_var), 1e-4).type_as(self.s).unsqueeze(0)), -5, 5)
-                    self.goal = torch.clamp(
-                        (self.goal - torch.Tensor(self.goal_mean).type_as(self.s).unsqueeze(0)) / torch.sqrt(
-                            torch.clamp(torch.Tensor(self.goal_var), 1e-4).type_as(self.s).unsqueeze(0)), -5, 5)
-
-                self.other_data = self.goal
-
-                self.a = self.a.resize_(action_batch.shape).copy_(torch.Tensor(action_batch))
-
-                mu, logsigma, sigma = self.policy(self.s, self.other_data)
-                # logp_expert = self.compute_logp(mu, logsigma, sigma, self.a)
-                # loss = -torch.mean(logp_expert) - self.entropy_weight * self.compute_entropy()
-                loss = loss_fn(mu, self.a)
-
-                self.policy.zero_grad()
-                loss.backward()
-                if self.max_grad_norm is not None:
-                    nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
-                self.optimizer.step()
-
-                loss_show += loss.item()
-
-            self.save_model("output/models/HTRPO")
-            print("iter: {:d}, training loss: {:.3f}".format(iter, loss_show))
-
-        return {
-            "action_mean": action_mean,
-            "action_std": action_std
-        }
+    # def pretrain_policy_use_demos(self, demopath, train_configs, gym_states = True):
+    #
+    #     # demopath is a directory including training_data.pkl
+    #     with open(demopath, "rb") as f:
+    #         demos = pickle.load(f)
+    #
+    #     # load data
+    #     if gym_states:
+    #         states = [demos[i]["gym_observations"] for i in range(len(demos))]
+    #     else:
+    #         states = [demos[i]["states"] for i in range(len(demos))]
+    #     actions = [demos[i]["actions"] for i in range(len(demos))]
+    #     gripper_actuations = [demos[i]["gripper_actuations"] for i in range(len(demos))]
+    #     state_lens_sort_ind = list(np.argsort([s.shape[0] for s in states]))
+    #     if train_configs["num_ep_selected"]:
+    #         state_lens_sort_ind = state_lens_sort_ind[:train_configs["num_ep_selected"]]
+    #     goals = [demos[i]["achieved_goals"] for i in range(len(demos))]
+    #     assert len(states) == len(actions) == len(goals), "sizes of states, actions and goals do not match."
+    #
+    #     data_size = sum([states[i].shape[0] for i in state_lens_sort_ind])
+    #     demo_ends = np.cumsum([states[i].shape[0] for i in state_lens_sort_ind])
+    #     demo_ends = np.concatenate([demo_ends[j] * np.ones(states[i].shape[0]) for j, i in enumerate(state_lens_sort_ind)])
+    #
+    #     # dataset initialization
+    #     all_data_states = np.concatenate([states[i] for i in state_lens_sort_ind], axis=0)
+    #
+    #     # normalized action can result in better performance
+    #     all_data_actions = np.concatenate([actions[i] for i in state_lens_sort_ind], axis=0)
+    #     all_data_grippers = np.concatenate([gripper_actuations[i] for i in state_lens_sort_ind], axis=0)
+    #     all_data_actions = np.concatenate((all_data_actions, all_data_grippers), axis=1)
+    #
+    #     action_mean = None
+    #     action_std = None
+    #     if train_configs["using_act_norm"]:
+    #         action_mean, action_std = np.mean(all_data_actions, axis=0), np.std(all_data_actions, axis=0)
+    #         all_data_actions -= action_mean
+    #         all_data_actions /= action_std
+    #
+    #     all_data_goals = np.concatenate([goals[i] for i in state_lens_sort_ind], axis=0)
+    #
+    #     if self.norm_ob:
+    #         self.ob_rms['observation'].update(all_data_states)
+    #         self.ob_rms['desired_goal'].update(all_data_goals)
+    #         self.ob_mean = self.ob_rms['observation'].mean
+    #         self.ob_var = self.ob_rms['observation'].var
+    #         self.goal_mean = self.ob_rms['desired_goal'].mean
+    #         self.goal_var = self.ob_rms['desired_goal'].var
+    #
+    #     loss_fn = nn.MSELoss()
+    #
+    #     for iter in range(train_configs["iter_num"]):
+    #
+    #         goal_inds = []
+    #         for i in range(data_size):
+    #             if i + 1 < demo_ends[i]:
+    #                 goal_ind = np.random.randint(low=i + 1, high=demo_ends[i])
+    #             else:
+    #                 goal_ind = -1
+    #             goal_inds.append(goal_ind)
+    #         goal_inds = np.array(goal_inds, dtype=np.int32)
+    #
+    #         inds = [i for i in range((goal_inds >= 0).sum())]
+    #         random.shuffle(inds)
+    #
+    #         data_goals = all_data_goals[goal_inds[goal_inds >= 0]]
+    #         data_states = all_data_states[goal_inds >= 0]
+    #         data_actions = all_data_actions[goal_inds >= 0]
+    #
+    #         loss_show = 0
+    #         # training
+    #         for start in range(0, data_states.shape[0], train_configs["batch_size"]):
+    #             end = min(start + train_configs["batch_size"], data_states.shape[0])
+    #             state_batch = data_states[inds[start: end]]
+    #             action_batch = data_actions[inds[start: end]]
+    #             goal_batch = data_goals[inds[start: end]]
+    #
+    #             self.s = self.s.resize_(state_batch.shape).copy_(torch.Tensor(state_batch))
+    #             self.goal = torch.Tensor(goal_batch).type_as(self.s)
+    #
+    #             if self.norm_ob:
+    #                 self.s = torch.clamp(
+    #                     (self.s - torch.Tensor(self.ob_mean).type_as(self.s).unsqueeze(0)) / torch.sqrt(
+    #                         torch.clamp(torch.Tensor(self.ob_var), 1e-4).type_as(self.s).unsqueeze(0)), -5, 5)
+    #                 self.goal = torch.clamp(
+    #                     (self.goal - torch.Tensor(self.goal_mean).type_as(self.s).unsqueeze(0)) / torch.sqrt(
+    #                         torch.clamp(torch.Tensor(self.goal_var), 1e-4).type_as(self.s).unsqueeze(0)), -5, 5)
+    #
+    #             self.other_data = self.goal
+    #
+    #             self.a = self.a.resize_(action_batch.shape).copy_(torch.Tensor(action_batch))
+    #
+    #             mu, logsigma, sigma = self.policy(self.s, self.other_data)
+    #             # logp_expert = self.compute_logp(mu, logsigma, sigma, self.a)
+    #             # loss = -torch.mean(logp_expert) - self.entropy_weight * self.compute_entropy()
+    #             loss = loss_fn(mu, self.a)
+    #
+    #             self.policy.zero_grad()
+    #             loss.backward()
+    #             if self.max_grad_norm is not None:
+    #                 nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
+    #             self.optimizer.step()
+    #
+    #             loss_show += loss.item()
+    #
+    #         self.save_model("output/models/HTRPO")
+    #         print("iter: {:d}, training loss: {:.3f}".format(iter, loss_show))
+    #
+    #     return {
+    #         "action_mean": action_mean,
+    #         "action_std": action_std
+    #     }
 
     def generate_fake_data(self):
         self.subgoals = torch.Tensor(self.subgoals).type_as(self.s)
@@ -573,65 +573,65 @@ class HPG_Softmax(HPG, PG_Softmax):
     def __init__(self, hyperparams):
         super(HPG_Softmax, self).__init__(hyperparams)
 
-    def pretrain_policy_use_demos(self, demopath, train_configs):
-
-        # demopath is a directory including training_data.pkl
-        with open(demopath, "rb") as f:
-            demos = pickle.load(f)
-
-        # load data
-        states = demos["states"]
-        actions = demos["actions"]
-        goals = demos["achieved_goals"]
-        assert len(states) == len(actions) == len(goals), "sizes of states, actions and goals do not match."
-        demo_num = len(states)
-        data_size = 0
-        for i in range(demo_num):
-            data_size += states[i].shape[0]
-        demo_ends = np.cumsum([states[i].shape[0] for i in range(demo_num)])
-        demo_ends = np.concatenate([demo_ends[i] * np.ones(states[i].shape[0]) for i in range(demo_num)])
-
-        inds = [i for i in range(data_size)]
-
-        for iter in range(train_configs["iter_num"]):
-            # data loading order
-            random.shuffle(inds)
-
-            # dataset initialization
-            data_states = np.concatenate([states[i] for i in range(demo_num)], axis=0)
-            data_actions = np.concatenate([actions[i] for i in range(demo_num)], axis=0)
-            data_goals = np.concatenate([goals[i] for i in range(demo_num)], axis=0)
-
-            # set goals for training, which is the future achieved state.
-            goal_inds = []
-            for i in range(data_size):
-                if i + 1 < demo_ends[i]:
-                    goal_ind = np.random.randint(low=i + 1, high=demo_ends[i])
-                else:
-                    goal_ind = -1
-                goal_inds.append(goal_ind)
-            goal_inds = np.array(goal_inds, dtype=np.uint8)
-            data_goals = data_goals[goal_inds[goal_inds >= 0]]
-            data_states = data_states[goal_inds >= 0]
-            data_actions = data_actions[goal_inds >= 0]
-
-            # training
-            for start in range(0, data_states.shape[0], train_configs["batch_size"]):
-                state_batch = data_states[start : start+train_configs["batch_size"]]
-                action_batch = data_actions[start : start+train_configs["batch_size"]]
-                goal_batch = data_goals[start : start+train_configs["batch_size"]]
-
-                input = np.concatenate((state_batch, goal_batch), axis=1)
-                distri = self.policy(torch.Tensor(input).type_as(self.s))
-                logp_expert = self.compute_logp(distri,
-                                                torch.Tensor(action_batch).type_as(self.a))
-                loss = -torch.sum(logp_expert)
-
-                self.policy.zero_grad()
-                loss.backward()
-                if self.max_grad_norm is not None:
-                    nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
-                self.optimizer.step()
+    # def pretrain_policy_use_demos(self, demopath, train_configs):
+    # 
+    #     # demopath is a directory including training_data.pkl
+    #     with open(demopath, "rb") as f:
+    #         demos = pickle.load(f)
+    # 
+    #     # load data
+    #     states = demos["states"]
+    #     actions = demos["actions"]
+    #     goals = demos["achieved_goals"]
+    #     assert len(states) == len(actions) == len(goals), "sizes of states, actions and goals do not match."
+    #     demo_num = len(states)
+    #     data_size = 0
+    #     for i in range(demo_num):
+    #         data_size += states[i].shape[0]
+    #     demo_ends = np.cumsum([states[i].shape[0] for i in range(demo_num)])
+    #     demo_ends = np.concatenate([demo_ends[i] * np.ones(states[i].shape[0]) for i in range(demo_num)])
+    # 
+    #     inds = [i for i in range(data_size)]
+    # 
+    #     for iter in range(train_configs["iter_num"]):
+    #         # data loading order
+    #         random.shuffle(inds)
+    # 
+    #         # dataset initialization
+    #         data_states = np.concatenate([states[i] for i in range(demo_num)], axis=0)
+    #         data_actions = np.concatenate([actions[i] for i in range(demo_num)], axis=0)
+    #         data_goals = np.concatenate([goals[i] for i in range(demo_num)], axis=0)
+    # 
+    #         # set goals for training, which is the future achieved state.
+    #         goal_inds = []
+    #         for i in range(data_size):
+    #             if i + 1 < demo_ends[i]:
+    #                 goal_ind = np.random.randint(low=i + 1, high=demo_ends[i])
+    #             else:
+    #                 goal_ind = -1
+    #             goal_inds.append(goal_ind)
+    #         goal_inds = np.array(goal_inds, dtype=np.uint8)
+    #         data_goals = data_goals[goal_inds[goal_inds >= 0]]
+    #         data_states = data_states[goal_inds >= 0]
+    #         data_actions = data_actions[goal_inds >= 0]
+    # 
+    #         # training
+    #         for start in range(0, data_states.shape[0], train_configs["batch_size"]):
+    #             state_batch = data_states[start : start+train_configs["batch_size"]]
+    #             action_batch = data_actions[start : start+train_configs["batch_size"]]
+    #             goal_batch = data_goals[start : start+train_configs["batch_size"]]
+    # 
+    #             input = np.concatenate((state_batch, goal_batch), axis=1)
+    #             distri = self.policy(torch.Tensor(input).type_as(self.s))
+    #             logp_expert = self.compute_logp(distri,
+    #                                             torch.Tensor(action_batch).type_as(self.a))
+    #             loss = -torch.sum(logp_expert)
+    # 
+    #             self.policy.zero_grad()
+    #             loss.backward()
+    #             if self.max_grad_norm is not None:
+    #                 nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
+    #             self.optimizer.step()
 
     def choose_action(self, s, other_data = None, greedy = False):
         assert other_data is None or other_data.size(-1) == self.d_goal, "other_data should only contain goal information in current version"

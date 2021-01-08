@@ -4,7 +4,7 @@ from scipy.sparse.csgraph import shortest_path
 from gym import spaces
 
 class Maze(object):
-    def __init__(self, layout, max_steps, entries, exits=None, epsilon=0.0, reward = 'sparse'):
+    def __init__(self, layout, max_steps, entries, exits=None, epsilon=0.0, reward_type = 'sparse'):
         self.layout = np.array(layout, dtype=np.int)
         validr, validc = np.nonzero(self.layout)
         self.valid_positions = set(zip(validr, validc))
@@ -24,7 +24,7 @@ class Maze(object):
         self.d_observations = 2
         self.d_goals = 2
 
-        self.reward_type = reward
+        self.reward_type = reward_type
 
         self.acc_rew = 0
 
@@ -34,8 +34,6 @@ class Maze(object):
             "desired_goal": spaces.MultiDiscrete([self.layout.shape[0], self.layout.shape[1]]),
             "achieved_goal": spaces.MultiDiscrete([self.layout.shape[0], self.layout.shape[1]]),
         })
-
-        self.max_episode_steps = max_steps
 
     def check_consistency(self):
         given = self.entries.union(self.exits)
@@ -124,7 +122,7 @@ class Maze(object):
                 reward = -1.0
         self.acc_rew += reward
 
-        done = (self.max_episode_steps <= self.n_steps) or (reward >= 0.0)
+        done = reward >= 0.0
 
         obs = {
             "observation": np.array(self.position),
@@ -171,13 +169,16 @@ class Maze(object):
 
         return ''.join(s)
 
+    def unwrapped(self):
+        return self
+
 class EmptyMaze(Maze):
-    def __init__(self, reward = 'sparse'):
+    def __init__(self, reward_type = 'sparse'):
         super(EmptyMaze, self).__init__(layout=np.ones((11, 11), dtype=np.int), max_steps = 32, entries=[(0, 0)],
-                                        reward = reward)
+                                        reward_type = reward_type)
 
 class FourRoomMaze(Maze):
-    def __init__(self, reward = 'sparse'):
+    def __init__(self, reward_type = 'sparse'):
         layout = np.ones(shape=(11, 11), dtype=np.int)
 
         # Walls
@@ -192,4 +193,4 @@ class FourRoomMaze(Maze):
         layout[9, 5] = 1
         super(FourRoomMaze, self).__init__(layout = layout, max_steps=32,
                                            entries=[(0, 0), (0, 10), (10, 0), (10, 10)],
-                                           epsilon=0.2, reward = reward)
+                                           epsilon=0.2, reward_type = reward_type)

@@ -11,6 +11,7 @@ import contextlib
 import os
 import multiprocessing as mp
 import warnings
+import copy
 
 def space_dim(space):
     if isinstance(space, spaces.Box):
@@ -120,9 +121,11 @@ def copy_obs_dict(obs):
 @contextlib.contextmanager
 def clear_mpi_env_vars():
     """
-    from mpi4py import MPI will call MPI_Init by default.  If the child process has MPI environment variables, MPI will think that the child process is an MPI process just like the parent and do bad things such as hang.
-    This context manager is a hacky way to clear those environment variables temporarily such as when we are starting multiprocessing
-    Processes.
+    from mpi4py import MPI will call MPI_Init by default.  If the child process has
+    MPI environment variables, MPI will think that the child process is an MPI process
+    just like the parent and do bad things such as hang.
+    This context manager is a hacky way to clear those environment variables temporarily
+    such as when we are starting multiprocessing Processes.
     """
     removed_environment = {}
     for k, v in list(os.environ.items()):
@@ -173,12 +176,8 @@ class VecEnv(ABC):
         'render.modes': ['human', 'rgb_array']
     }
 
-    def __init__(self, num_envs, observation_space, action_space, max_steps = None, compute_reward = None):
+    def __init__(self, num_envs):
         self.num_envs = num_envs
-        self.observation_space = observation_space
-        self.action_space = action_space
-        self.max_episode_steps = max_steps
-        self.compute_reward = compute_reward
 
     @abstractmethod
     def reset(self, i = None):
@@ -290,14 +289,10 @@ class VecEnvWrapper(VecEnv):
     of environments at once.
     """
 
-    def __init__(self, venv, observation_space=None, action_space=None, max_steps=None):
+    def __init__(self, venv, observation_space=None, action_space=None):
         self.venv = venv
         VecEnv.__init__(self,
-                        num_envs=venv.num_envs,
-                        observation_space=observation_space or venv.observation_space,
-                        action_space=action_space or venv.action_space,
-                        max_steps = max_steps or venv.max_episode_steps,
-                        compute_reward=venv.compute_reward if hasattr(venv, "compute_reward") else None)
+                        num_envs=venv.num_envs)
 
     def step_async(self, actions):
         self.venv.step_async(actions)
@@ -334,8 +329,7 @@ class DummyVecEnv(VecEnv):
         """
         self.envs = [fn() for fn in env_fns]
         env = self.envs[0]
-        VecEnv.__init__(self, len(env_fns), env.observation_space, env.action_space, env.max_episode_steps,
-                        env.compute_reward if hasattr(env, "compute_reward") else None)
+        VecEnv.__init__(self, len(env_fns))
         obs_space = env.observation_space
         self.keys, shapes, dtypes = obs_space_info(obs_space)
 
@@ -344,8 +338,9 @@ class DummyVecEnv(VecEnv):
         self.buf_rews  = np.zeros((self.num_envs,), dtype=np.float32)
         self.buf_infos = [{} for _ in range(self.num_envs)]
         self.actions = None
-        if hasattr(env, "spec"):
-            self.spec = self.envs[0].spec
+
+    def __getattr__(self, name):
+        return getattr(self.envs[0], name)
 
     def step_async(self, actions):
         listify = True
@@ -364,8 +359,6 @@ class DummyVecEnv(VecEnv):
     def step_wait(self):
         for e in range(self.num_envs):
             action = self.actions[e]
-            # if isinstance(self.envs[e].action_space, spaces.Discrete):
-            #    action = int(action)
 
             obs, self.buf_rews[e], self.buf_dones[e], self.buf_infos[e] = self.envs[e].step(action)
 
@@ -433,7 +426,7 @@ class SubprocVecEnv(VecEnv):
         self.remotes[0].send(('get_spaces_spec', None))
         observation_space, action_space, self.spec = self.remotes[0].recv()
         self.viewer = None
-        VecEnv.__init__(self, len(env_fns), observation_space, action_space)
+        VecEnv.__init__(self, len(env_fns))
 
     def step_async(self, actions):
         self._assert_not_closed()
@@ -490,11 +483,12 @@ class VecNormalize(VecEnvWrapper):
 
         self.norm_act = act
         # if action space is not continuous or continuous but unbounded, disable the action normalization.
-        if act and (not isinstance(self.venv.action_space, spaces.Box) or
-                    (isinstance(self.venv.action_space, spaces.Box)
-                     and np.isinf(self.venv.action_space.high - self.venv.action_space.low).sum() > 0)):
+        if act and (not isinstance(self.action_space, spaces.Box) or
+                    (isinstance(self.action_space, spaces.Box)
+                     and np.isinf(self.action_space.high - self.action_space.low).sum() > 0)):
             warnings.warn("Only finite continuous action space supports normalization. Action normalization disabled.")
             self.norm_act = False
+
         self.norm_ob = ob
         self.norm_rw = ret
 
@@ -518,6 +512,18 @@ class VecNormalize(VecEnvWrapper):
         self.gamma = gamma
         self.epsilon = epsilon
 
+        self.old_obs = np.array([])
+        self.training = False
+
+    def __getattr__(self, item):
+        return getattr(self.venv, item)
+
+    def train(self, mode=True):
+        self.training = mode
+
+    def eval(self):
+        self.train(False)
+
     def step(self, a):
         if self.norm_act:
             # clip and normalize actions.
@@ -527,23 +533,42 @@ class VecNormalize(VecEnvWrapper):
     def step_wait(self):
         obs, rews, news, infos = self.venv.step_wait()
         self.ret = self.ret * self.gamma + rews
-        obs = self._obfilt(obs)
-        # Normalize rewards
-        self.ret_rms.update(self.ret)
+        self.old_obs = copy.deepcopy(obs)
+        obs = self._normalize_ob(obs)
         if self.norm_rw:
-            # r_out = r / sigma_ret (within [-cliprew, cliprew]) WHY????
+            # Normalize rewards
+            if self.training:
+                self.ret_rms.update(self.ret)
             rews = np.clip(rews / np.sqrt(self.ret_rms.var + self.epsilon), -self.cliprew, self.cliprew)
         # reset all returns, which are corresponding to envs that are done for the current episode, to 0.
         self.ret[news] = 0.
         return obs, rews, news, infos
 
-    def _obfilt(self, obs):
-        # Normalize obs. (Minus mean and divided by sqrt(var).)
-        if isinstance(self.observation_space, spaces.Dict):
-            for key in obs.keys():
-                self.ob_rms[key].update(obs[key])
+    def reset(self, i = None):
+        self.ret = np.zeros(self.num_envs)
+        if i is not None:
+            obs = self.venv.reset()
         else:
-            self.ob_rms.update(obs)
+            obs = self.venv.reset(i)
+        return self._normalize_ob(obs)
+
+    def get_original_obs(self):
+        """
+        returns the unnormalized observation
+
+        :return: (numpy float)
+        """
+        return self.old_obs
+
+    def _normalize_ob(self, obs):
+        # Normalize obs. (Minus mean and divided by sqrt(var).)
+
+        if self.training:
+            if isinstance(self.observation_space, spaces.Dict):
+                for key in obs.keys():
+                    self.ob_rms[key].update(obs[key])
+            else:
+                self.ob_rms.update(obs)
 
         if self.norm_ob:
             if isinstance(self.observation_space, spaces.Dict):
@@ -566,36 +591,42 @@ class VecNormalize(VecEnvWrapper):
             else 0.5 * (self.action_space.high - self.action_space.low)
         return normed_action * a_std + a_mean
 
-    def reset(self, i = None):
-        self.ret = np.zeros(self.num_envs)
-        if i is not None:
-            obs = self.venv.reset()
-        else:
-            obs = self.venv.reset(i)
-        return self._obfilt(obs)
 
 class VecFrameStack(VecEnvWrapper):
-    def __init__(self, venv, nstack):
+    """
+    Frame stacking wrapper for vectorized environment
+
+    :param venv: (VecEnv) the vectorized environment to wrap
+    :param n_stack: (int) Number of frames to stack
+    """
+
+    def __init__(self, venv, n_stack):
         self.venv = venv
-        self.nstack = nstack
-        wos = venv.observation_space  # wrapped ob space
-        low = np.repeat(wos.low, self.nstack, axis=-1)
-        high = np.repeat(wos.high, self.nstack, axis=-1)
+        self.n_stack = n_stack
+        wrapped_obs_space = venv.observation_space
+        low = np.repeat(wrapped_obs_space.low, self.n_stack, axis=-1)
+        high = np.repeat(wrapped_obs_space.high, self.n_stack, axis=-1)
         self.stackedobs = np.zeros((venv.num_envs,) + low.shape, low.dtype)
-        observation_space = spaces.Box(low=low, high=high)
+        observation_space = spaces.Box(low=low, high=high, dtype=venv.observation_space.dtype)
         VecEnvWrapper.__init__(self, venv, observation_space=observation_space)
 
     def step_wait(self):
-        obs, rews, news, infos = self.venv.step_wait()
-        self.stackedobs = np.roll(self.stackedobs, shift=-1, axis=-1)
-        for (i, new) in enumerate(news):
-            if new:
+        observations, rewards, dones, infos = self.venv.step_wait()
+        self.stackedobs = np.roll(self.stackedobs, shift=-observations.shape[-1], axis=-1)
+        for i, done in enumerate(dones):
+            if done:
                 self.stackedobs[i] = 0
-        self.stackedobs[..., -obs.shape[-1]:] = obs
-        return self.stackedobs, rews, news, infos
+        self.stackedobs[..., -observations.shape[-1]:] = observations
+        return self.stackedobs, rewards, dones, infos
 
     def reset(self):
+        """
+        Reset all environments
+        """
         obs = self.venv.reset()
         self.stackedobs[...] = 0
         self.stackedobs[..., -obs.shape[-1]:] = obs
         return self.stackedobs
+
+    def close(self):
+        self.venv.close()

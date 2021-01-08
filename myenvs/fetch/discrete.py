@@ -24,10 +24,10 @@ def generate_itoa_dict(bucket_values=[-0.33, 0, 0.33], valid_movement_direction=
 
 
 class FetchReachDiscrete(object):
-    def __init__(self, max_steps=50,
+    def __init__(self,
                  action_mode="impulsemixed", action_buckets=[-1, 0, 1],
                  action_stepsize=[0.1, 1.0],
-                 reward="sparse"):
+                 reward_type="sparse"):
         """
         Parameters:
             action_mode {"cart","cartmixed","cartprod","impulse","impulsemixed"}
@@ -56,7 +56,7 @@ class FetchReachDiscrete(object):
 
             `cartprod` takes combinations of actions as input
         """
-        if reward == "sparse":
+        if reward_type == "sparse":
             self.env = gym.make("FetchReach-v1")
         else:
             self.env = gym.make("FetchReachDense-v1")
@@ -76,8 +76,8 @@ class FetchReachDiscrete(object):
             "achieved_goal": spaces.Box(- np.inf * np.ones(self.d_goals), np.inf * np.ones(self.d_goals)),
         })
 
-        self.max_episode_steps = max_steps
-        self.reward_mode = reward
+
+        self.reward_mode = reward_type
         self.acc_rew = 0
 
     def generate_action_map(self, action_buckets, action_stepsize=1.):
@@ -165,7 +165,7 @@ class FetchReachDiscrete(object):
                 reached_goal = True
         self.acc_rew += reward
 
-        done = (self.max_episode_steps <= self.n_steps) or reached_goal
+        done = reached_goal
 
         info = {'is_success': reached_goal}
         if done:
@@ -189,13 +189,17 @@ class FetchReachDiscrete(object):
     # def __del__(self):
     #     self.env.close()
 
+    def unwrapped(self):
+        return self
+
 
 class FetchPushDiscrete(FetchReachDiscrete):
     def __init__(self, max_steps=50,
                  action_mode="impulsemixed", action_buckets=[-1, 0, 1],
                  action_stepsize=[0.1, 1.0],
-                 reward="sparse"):
-        if reward == "sparse":
+                 reward_type="sparse"):
+
+        if reward_type == "sparse":
             self.env = gym.make("FetchPush-v1")
         else:
             self.env = gym.make("FetchPushDense-v1")
@@ -215,17 +219,16 @@ class FetchPushDiscrete(FetchReachDiscrete):
             "achieved_goal": spaces.Box(- np.inf * np.ones(self.d_goals), np.inf * np.ones(self.d_goals)),
         })
 
-        self.max_episode_steps = max_steps
-        self.reward_mode = reward
+        self.reward_mode = reward_type
         self.acc_rew = 0
 
 class FetchSlideDiscrete(FetchReachDiscrete):
     def __init__(self, max_steps=50,
                  action_mode="impulsemixed", action_buckets=[-1, 0, 1],
                  action_stepsize=[0.1, 1.0],
-                 reward="sparse"):
+                 reward_type="sparse"):
 
-        if reward == "sparse":
+        if reward_type == "sparse":
             self.env = gym.make("FetchSlide-v1")
         else:
             self.env = gym.make("FetchSlideDense-v1")
@@ -245,6 +248,6 @@ class FetchSlideDiscrete(FetchReachDiscrete):
             "achieved_goal": spaces.Box(- np.inf * np.ones(self.d_goals), np.inf * np.ones(self.d_goals)),
         })
 
-        self.max_episode_steps = max_steps
-        self.reward_mode = reward
+        self.reward_mode = reward_type
         self.acc_rew = 0
+
