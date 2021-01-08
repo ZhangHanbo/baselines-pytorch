@@ -8,16 +8,7 @@ from collections import deque
 
 from utils.envbuilder import build_env, set_global_seeds
 from utils.vecenv import space_dim
-import agents
-from agents.PPO import run_ppo_train
-from agents.PG import run_pg_train
-from agents.NPG import run_npg_train
-from agents.TRPO import run_trpo_train
-from agents.NAF import run_naf_train
-from agents.DDPG import run_ddpg_train
-from agents.TD3 import run_td3_train
-from agents.HTRPO import run_htrpo_train
-from agents.HPG import run_hpg_train
+from agents import *
 from agents.config import *
 from configs import CONFIGS
 
@@ -79,16 +70,36 @@ def arg_parser():
     args = parser.parse_args()
     return args
 
+def imitation_pretrain():
+
+    # if args.usedemo:
+    #     assert args.alg in {"HTRPO", "HPG"}, "Imitation learning warm-up only supports HTRPO and HPG."
+    #     demofile = os.path.join(args.demopath, "demo.pkl")
+    #     if not os.path.exists(demofile):
+    #         raise RuntimeError("Demo file " + demofile + " does not exist.")
+    #     train_configs = {
+    #         "batch_size": 100,
+    #         "iter_num": 0,
+    #         "num_ep_selected": 225, # from the setting of IRIS
+    #         "using_act_norm":True
+    #     }
+    #     info = RL_brain.pretrain_policy_use_demos(demofile, train_configs)
+    #     if info["action_mean"] is not None and info["action_std"] is not None:
+    #         env.a_mean = info["action_mean"]
+    #         env.a_std = info["action_std"]
+
+    pass
+
 if __name__ == "__main__":
     args = arg_parser()
 
     configs = {}
-    if args.alg in ("TD3", "NAF", "DDPG", "DQN", "DDQN", "DuelingDQN", "HTRPO", "HPG"):
-        print("The chosen alg is off-policy. Stored transitions are not normalized.")
-        configs['norm_ob'] = not args.unnormobs
-        configs['norm_rw'] = not args.unnormret
-        args.unnormobs = True
-        args.unnormret = True
+    configs['norm_ob'] = not args.unnormobs
+    configs['norm_rw'] = not args.unnormret
+    # if args.alg in ("TD3", "NAF", "DDPG", "DQN", "DDQN", "DuelingDQN", "HTRPO", "HPG"):
+    #     print("The chosen alg is off-policy. Stored transitions are not normalized.")
+    #     args.unnormobs = True
+    #     args.unnormret = True
 
     # build game environment
     env, env_type, env_id = build_env(args)
@@ -122,7 +133,7 @@ if __name__ == "__main__":
 
     # initialize configurations
     env_id_for_cfg = "".join(args.env.split("-"))
-    configs.update(eval("CONFIGS[{}][{}].{}config".format(args.alg, env_id_for_cfg, args.alg)))
+    configs.update(eval("CONFIGS[{}][{}].{}config".format('"' + args.alg + '"', '"' + env_id_for_cfg + '"', args.alg)))
     configs['n_states'] = n_states
     configs['n_action_dims'] = n_action_dims
     configs['dicrete_action'] = DICRETE_ACTION_SPACE
@@ -135,18 +146,17 @@ if __name__ == "__main__":
         configs['other_data'] = env.reset()
         assert isinstance(configs['other_data'], dict), \
             "Please check the environment settings, hindsight algorithms only support goal conditioned tasks."
-        del configs['other_data']['observation']
-        configs['goal_space'] = env_obs_space.spaces['desired_goal']
-        configs['env'] = env
+        configs['reward_fn'] = env.compute_reward
+        configs['max_episode_steps'] = env.max_episode_steps
 
     # init agent
     if args.alg in ("PG", "NPG", "TRPO", "PPO", "AdaptiveKLPPO", "HTRPO", "HPG"):
         if DICRETE_ACTION_SPACE:
-            RL_brain = eval("agents." + args.alg + "_Softmax(configs)")
+            RL_brain = eval(args.alg + "_Softmax(configs)")
         else:
-            RL_brain = eval("agents." + args.alg + "_Gaussian(configs)")
+            RL_brain = eval(args.alg + "_Gaussian(configs)")
     else:
-        RL_brain = eval("agents." + args.alg + "(configs)")
+        RL_brain = eval(args.alg + "(configs)")
 
     if not args.cpu:
         RL_brain.cuda()
@@ -155,21 +165,9 @@ if __name__ == "__main__":
     if args.resume:
         RL_brain.load_model(load_path=output_dir, load_point=args.checkpoint)
 
-    # if args.usedemo:
-    #     assert args.alg in {"HTRPO", "HPG"}, "Imitation learning warm-up only supports HTRPO and HPG."
-    #     demofile = os.path.join(args.demopath, "demo.pkl")
-    #     if not os.path.exists(demofile):
-    #         raise RuntimeError("Demo file " + demofile + " does not exist.")
-    #     train_configs = {
-    #         "batch_size": 100,
-    #         "iter_num": 0,
-    #         "num_ep_selected": 225, # from the setting of IRIS
-    #         "using_act_norm":True
-    #     }
-    #     info = RL_brain.pretrain_policy_use_demos(demofile, train_configs)
-    #     if info["action_mean"] is not None and info["action_std"] is not None:
-    #         env.a_mean = info["action_mean"]
-    #         env.a_std = info["action_std"]
+    if args.usedemo:
+        # TODO: imitation learning now is not supported yet.
+        imitation_pretrain()
 
     # training
     if args.alg == "PPO" or args.alg == "AdaptiveKLPPO":

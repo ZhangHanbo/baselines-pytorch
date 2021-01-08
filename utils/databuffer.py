@@ -28,7 +28,8 @@ class databuffer(object):
         if 'other_data' in config:
             self.other_data = {}
             for key, box in config['other_data'].items():
-                self.other_data[key] = np.zeros((0,) + box.shape[1:], dtype=box.dtype)
+                if key != 'observation':
+                    self.other_data[key] = np.zeros((0,) + box.shape[1:], dtype=box.dtype)
 
         # memory counter: How many transitions are recorded in total
         self.mem_c = 0

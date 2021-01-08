@@ -289,10 +289,9 @@ class VecEnvWrapper(VecEnv):
     of environments at once.
     """
 
-    def __init__(self, venv, observation_space=None, action_space=None):
+    def __init__(self, venv):
         self.venv = venv
-        VecEnv.__init__(self,
-                        num_envs=venv.num_envs)
+        VecEnv.__init__(self, num_envs=venv.num_envs)
 
     def step_async(self, actions):
         self.venv.step_async(actions)
@@ -403,7 +402,7 @@ class SubprocVecEnv(VecEnv):
     VecEnv that runs multiple environments in parallel in subproceses and communicates with them via pipes.
     Recommended to use when num_envs > 1 and step() can be a bottleneck.
     """
-    def __init__(self, env_fns, spaces=None, context='spawn'):
+    def __init__(self, env_fns, context='spawn'):
         """
         Arguments:
 

@@ -20,14 +20,13 @@ class HPG(PG):
         config.update(hyperparams)
         super(HPG, self).__init__(config)
         self.sampled_goal_num = config['sampled_goal_num']
-        self.goal_space = config['goal_space']
-        self.d_goal = space_dim(self.goal_space)
+        self.d_goal = config["n_states"]["n_g"]
         self.per_decision = config['per_decision']
         self.weight_is = config['weighted_is']
-        assert self.goal_space, "No goal sampling space is specified."
         self.using_hgf_goals = config['using_hgf_goals']
-        self.env = config['env']
-        self.max_steps = self.env.max_episode_steps
+        self.reward_fn = config['reward_fn']
+        self.max_steps = config['max_episode_steps']
+        self.obs_space = config['other_data']
         self.using_original_data = config['using_original_data']
         self.n_valid_ep = 0
         self.reward_type = config['reward_type']
@@ -37,8 +36,8 @@ class HPG(PG):
         self.norm_ob = config['norm_ob']
         if self.norm_ob:
             self.ob_rms = {}
-            for key in self.env.observation_space.spaces.keys():
-                self.ob_rms[key] = RunningMeanStd(shape=self.env.observation_space.spaces[key].shape)
+            for key in self.obs_space.keys():
+                self.ob_rms[key] = RunningMeanStd(shape=self.obs_space[key].shape)
             self.ob_mean = [0.,]
             self.ob_var = [1.,]
             self.goal_mean = [0.,]
@@ -144,11 +143,11 @@ class HPG(PG):
         if self.norm_ob:
             self.ob_rms['observation'].update(self.s.cpu().numpy())
             self.ob_rms['desired_goal'].update(self.goal.cpu().numpy())
-            self.s = torch.clamp((self.s - torch.Tensor(self.ob_mean).type_as(self.s).unsqueeze(0)) / torch.sqrt(
-                torch.clamp(torch.Tensor(self.ob_var), 1e-4).type_as(self.s).unsqueeze(0)), -5, 5)
+            self.s = torch.clamp((self.s - torch.Tensor(self.ob_mean).type_as(self.s)) / torch.sqrt(
+                torch.clamp(torch.Tensor(self.ob_var), 1e-4).type_as(self.s)), -5, 5)
             self.goal = torch.clamp(
-                (self.goal - torch.Tensor(self.goal_mean).type_as(self.s).unsqueeze(0)) / torch.sqrt(
-                    torch.clamp(torch.Tensor(self.goal_var), 1e-4).type_as(self.s).unsqueeze(0)), -5, 5)
+                (self.goal - torch.Tensor(self.goal_mean).type_as(self.s)) / torch.sqrt(
+                    torch.clamp(torch.Tensor(self.goal_var), 1e-4).type_as(self.s)), -5, 5)
         if self.norm_rw:
             self.ret_rms.update(self.ret.squeeze(1).cpu().numpy())
             self.r = torch.clamp(self.r / torch.sqrt(torch.clamp(torch.Tensor([self.rw_var, ]), 1e-8)).type_as(self.s),
@@ -245,10 +244,10 @@ class HPG_Gaussian(HPG, PG_Gaussian):
     def choose_action(self, s, other_data = None, greedy = False):
         assert other_data is None or other_data.size(-1) == self.d_goal, "other_data should only contain goal information in current version"
         if self.norm_ob:
-            s = torch.clamp((s - torch.Tensor(self.ob_mean).type_as(s).unsqueeze(0)) / torch.sqrt(
-                torch.clamp(torch.Tensor(self.ob_var), 1e-4).type_as(s).unsqueeze(0)), -5, 5)
-            other_data = torch.clamp((other_data - torch.Tensor(self.goal_mean).type_as(s).unsqueeze(0)) / torch.sqrt(
-                torch.clamp(torch.Tensor(self.goal_var), 1e-4).type_as(s).unsqueeze(0)), -5, 5)
+            s = torch.clamp((s - torch.Tensor(self.ob_mean).type_as(s)) / torch.sqrt(
+                torch.clamp(torch.Tensor(self.ob_var), 1e-4).type_as(s)), -5, 5)
+            other_data = torch.clamp((other_data - torch.Tensor(self.goal_mean).type_as(s)) / torch.sqrt(
+                torch.clamp(torch.Tensor(self.goal_var), 1e-4).type_as(s)), -5, 5)
         return PG_Gaussian.choose_action(self, s, other_data, greedy)
 
     # def pretrain_policy_use_demos(self, demopath, train_configs, gym_states = True):
@@ -377,7 +376,7 @@ class HPG_Gaussian(HPG, PG_Gaussian):
 
             # Modify episode length and rewards.
             # Ng x T
-            r_f = self.env.compute_reward(self.episodes[ep]['achieved_goal'].unsqueeze(0).repeat(n_g,1,1).cpu().numpy(),
+            r_f = self.reward_fn(self.episodes[ep]['achieved_goal'].unsqueeze(0).repeat(n_g,1,1).cpu().numpy(),
                                           self.subgoals.unsqueeze(1).repeat(1,ep_len,1).cpu().numpy(), None)
             if self.reward_type == "dense":
                 goal_dist = - r_f
@@ -434,11 +433,11 @@ class HPG_Gaussian(HPG, PG_Gaussian):
                          # - self.episodes[ep]['achieved_goal'].unsqueeze(0).repeat(n_g,1,1).reshape(-1, self.d_goal)
             if self.norm_ob:
                 fake_input_s = torch.clamp(
-                    (expanded_s - torch.Tensor(self.ob_mean).type_as(self.s).unsqueeze(0)) / torch.sqrt(
-                        torch.clamp(torch.Tensor(self.ob_var), 1e-4).type_as(self.s).unsqueeze(0)), -5, 5)
+                    (expanded_s - torch.Tensor(self.ob_mean).type_as(self.s)) / torch.sqrt(
+                        torch.clamp(torch.Tensor(self.ob_var), 1e-4).type_as(self.s)), -5, 5)
                 fake_input_g = torch.clamp(
-                    (expanded_g - torch.Tensor(self.goal_mean).type_as(self.s).unsqueeze(0)) / torch.sqrt(
-                        torch.clamp(torch.Tensor(self.goal_var), 1e-4).type_as(self.s).unsqueeze(0)), -5, 5)
+                    (expanded_g - torch.Tensor(self.goal_mean).type_as(self.s)) / torch.sqrt(
+                        torch.clamp(torch.Tensor(self.goal_var), 1e-4).type_as(self.s)), -5, 5)
 
             else:
                 fake_input_s = expanded_s
@@ -636,10 +635,10 @@ class HPG_Softmax(HPG, PG_Softmax):
     def choose_action(self, s, other_data = None, greedy = False):
         assert other_data is None or other_data.size(-1) == self.d_goal, "other_data should only contain goal information in current version"
         if self.norm_ob:
-            s = torch.clamp((s - torch.Tensor(self.ob_mean).type_as(s).unsqueeze(0)) / torch.sqrt(
-                torch.clamp(torch.Tensor(self.ob_var), 1e-4).type_as(s).unsqueeze(0)), -5, 5)
-            other_data = torch.clamp((other_data - torch.Tensor(self.goal_mean).type_as(s).unsqueeze(0)) / torch.sqrt(
-                torch.clamp(torch.Tensor(self.goal_var), 1e-4).type_as(s).unsqueeze(0)), -5, 5)
+            s = torch.clamp((s - torch.Tensor(self.ob_mean).type_as(s)) / torch.sqrt(
+                torch.clamp(torch.Tensor(self.ob_var), 1e-4).type_as(s)), -5, 5)
+            other_data = torch.clamp((other_data - torch.Tensor(self.goal_mean).type_as(s)) / torch.sqrt(
+                torch.clamp(torch.Tensor(self.goal_var), 1e-4).type_as(s)), -5, 5)
         return PG_Softmax.choose_action(self, s, other_data, greedy)
 
     def generate_fake_data(self):
@@ -656,7 +655,7 @@ class HPG_Softmax(HPG, PG_Softmax):
 
             # Modify episode length and rewards.
             # Ng x T
-            r_f = self.env.compute_reward(
+            r_f = self.reward_fn(
                 self.episodes[ep]['achieved_goal'].unsqueeze(0).repeat(n_g, 1, 1).cpu().numpy(),
                 self.subgoals.unsqueeze(1).repeat(1, ep_len, 1).cpu().numpy(), None)
 
@@ -716,11 +715,11 @@ class HPG_Softmax(HPG, PG_Softmax):
 
             if self.norm_ob:
                 fake_input_s = torch.clamp(
-                    (expanded_s - torch.Tensor(self.ob_mean).type_as(self.s).unsqueeze(0)) / torch.sqrt(
-                        torch.clamp(torch.Tensor(self.ob_var), 1e-4).type_as(self.s).unsqueeze(0)), -5, 5)
+                    (expanded_s - torch.Tensor(self.ob_mean).type_as(self.s)) / torch.sqrt(
+                        torch.clamp(torch.Tensor(self.ob_var), 1e-4).type_as(self.s)), -5, 5)
                 fake_input_g = torch.clamp(
-                    (expanded_g - torch.Tensor(self.goal_mean).type_as(self.s).unsqueeze(0)) / torch.sqrt(
-                        torch.clamp(torch.Tensor(self.goal_var), 1e-4).type_as(self.s).unsqueeze(0)), -5, 5)
+                    (expanded_g - torch.Tensor(self.goal_mean).type_as(self.s)) / torch.sqrt(
+                        torch.clamp(torch.Tensor(self.goal_var), 1e-4).type_as(self.s)), -5, 5)
             else:
                 fake_input_s = expanded_s
                 fake_input_g = expanded_g

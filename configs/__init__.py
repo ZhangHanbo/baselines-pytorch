@@ -1,7 +1,8 @@
 import os
 import importlib
+import sys
 
-_cfg_list = os.listdir(".")
+_cfg_list = os.listdir("./configs")
 
 CONFIGS = {}
 for cfg in _cfg_list:
@@ -9,8 +10,8 @@ for cfg in _cfg_list:
         alg = cfg.split("_")[0]
         env_id = cfg.split(".")[0].split("_")[1]
         if alg in CONFIGS:
-            CONFIGS[alg][env_id] = importlib.import_module(cfg.split(".")[0])
+            CONFIGS[alg][env_id] = importlib.import_module("configs." + cfg.split(".")[0])
         else:
             CONFIGS[alg] = {}
-            CONFIGS[alg][env_id] = importlib.import_module(cfg.split(".")[0])
+            CONFIGS[alg][env_id] = importlib.import_module("configs." + cfg.split(".")[0])
 

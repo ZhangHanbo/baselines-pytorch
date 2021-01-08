@@ -1,4 +1,4 @@
-from utils.vecenv import DummyVecEnv, VecNormalize, VecFrameStack
+from utils.vecenv import DummyVecEnv, SubprocVecEnv, VecNormalize, VecFrameStack
 from collections import defaultdict
 import gym
 import myenvs
@@ -25,7 +25,7 @@ for env in gym.envs.registry.all():
     _game_envs[env_type].add(env.id)
 
 _my_game_envs = defaultdict(set)
-for env in gym.envs.registry.all():
+for env in myenvs.registry.all():
     env_type = env.entry_point.split(':')[0].split('.')[-1]
     _my_game_envs[env_type].add(env.id)
 
@@ -109,7 +109,7 @@ def make_vec_env(env_id, env_type, num_env, seed,
     set_global_seeds(seed)
 
     if num_env > 1:
-        return DummyVecEnv([make_thunk(i + start_index) for i in range(num_env)])
+        return SubprocVecEnv([make_thunk(i + start_index) for i in range(num_env)])
     else:
         return DummyVecEnv([make_thunk(start_index)])
 

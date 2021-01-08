@@ -44,7 +44,6 @@ class HTRPO(HPG, TRPO):
         if self.n_valid_ep == 0:
             return
         self.data_preprocess()
-        # self.other_data = self.goal
         self.other_data = self.goal
 
         # imp_fac: should be a 1-D Variable or Tensor, size is the same with a.size(0)
