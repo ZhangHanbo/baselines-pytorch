@@ -19,7 +19,7 @@ HTRPOconfig = {
     # NEED TO FOCUS ON THESE PARAMETERS
     'using_hpg': False,
     'steps_per_iter': 3200,
-    'sampled_goal_num': 80,
+    'sampled_goal_num': 100,
     'value_type': 'FC',
     'using_original_data': False,
     'act_func': F.tanh,

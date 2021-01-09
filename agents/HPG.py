@@ -37,7 +37,7 @@ class HPG(PG):
         if self.norm_ob:
             self.ob_rms = {}
             for key in self.obs_space.keys():
-                self.ob_rms[key] = RunningMeanStd(shape=self.obs_space[key].shape)
+                self.ob_rms[key] = RunningMeanStd(shape=(1,) + self.obs_space[key].shape[1:])
             self.ob_mean = [0.,]
             self.ob_var = [1.,]
             self.goal_mean = [0.,]

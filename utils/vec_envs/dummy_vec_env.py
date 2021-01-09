@@ -36,7 +36,7 @@ class DummyVecEnv(VecEnv):
         self.metadata = env.metadata
 
     def __getattr__(self, name):
-        return getattr(self.envs[0], name)
+        return self.get_attr(name)[0]
 
     def step_async(self, actions):
         self.actions = actions

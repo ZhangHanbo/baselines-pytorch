@@ -171,19 +171,7 @@ class VecEnv(ABC):
         This is available for backwards compatibility.
         """
         self.step_async(actions)
-        obs, rews, dones, infos = self.step_wait()
-
-        for e, info in enumerate(infos):
-            if dones[e]:
-                if isinstance(obs, dict):
-                    infos[e]["new_obs"] = {}
-                    temp_obs = self.reset(e)
-                    for k in obs.keys():
-                        infos[e]["new_obs"][k] = temp_obs[k][e]
-                else:
-                    infos[e]["new_obs"] = self.reset(e)[e]
-
-        return obs, rews, dones, infos
+        return self.step_wait()
 
 
     def get_images(self) -> Sequence[np.ndarray]:

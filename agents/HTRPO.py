@@ -16,6 +16,7 @@ from utils.rms import RunningMeanStd
 import pickle
 import os
 import random
+from utils.viewer import VideoWriter
 
 class HTRPO(HPG, TRPO):
     __metaclass__ = abc.ABCMeta
@@ -196,6 +197,10 @@ def run_htrpo_train(env, agent, max_timesteps, logger, eval_interval = None, num
     success_history = deque(maxlen=100)
     ep_num = 0
 
+    if render:
+        img = env.render("rgb_array")
+        video_writer = VideoWriter(out_dir="./train.avi", resolution=img.shape[:2][::-1])
+
     if eval_interval:
         eval_ret, eval_success = agent.eval_brain(env, render=render, eval_num=num_evals)
         print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
@@ -208,11 +213,14 @@ def run_htrpo_train(env, agent, max_timesteps, logger, eval_interval = None, num
     while (True):
         mb_obs, mb_rewards, mb_actions, mb_dones, mb_logpacs, mb_obs_, mb_mus, mb_sigmas \
             , mb_distris = [], [], [], [], [], [], [], [], []
+
         mb_dg, mb_ag = [], []
         epinfos = []
         successes = []
         obs_dict = env.reset()
-        # env.render()
+
+        if render:
+            video_writer.add_frame(env.render("rgb_array"))
 
         for i in range(0, agent.nsteps, env.num_envs):
             for key in obs_dict.keys():
@@ -243,27 +251,32 @@ def run_htrpo_train(env, agent, max_timesteps, logger, eval_interval = None, num
             else:
                 obs_dict_, rewards, dones, infos = env.step(actions)
 
-            # if timestep_counter > 350000:
-            # env.render()
+            next_obs_dict = copy.deepcopy(obs_dict_)
+
+            for e, info in enumerate(infos):
+                if dones[e]:
+                    epinfos.append(info.get('episode'))
+                    successes.append(info.get('is_success'))
+                    for k in next_obs_dict.keys():
+                        next_obs_dict[k][e] = info.get('terminal_observation')[k]
+                    ep_num += 1
+
+            if render:
+                video_writer.add_frame(env.render("rgb_array"))
 
             mb_obs.append(observations)
             mb_actions.append(actions)
             mb_logpacs.append(logp)
             mb_dones.append(dones.astype(np.uint8))
             mb_rewards.append(rewards)
-            mb_obs_.append(obs_dict_['observation'].copy())
-            mb_dg.append(obs_dict_['desired_goal'].copy())
-            mb_ag.append(obs_dict_['achieved_goal'].copy())
-
-            for e, info in enumerate(infos):
-                if dones[e]:
-                    epinfos.append(info.get('episode'))
-                    successes.append(info.get('is_success'))
-                    for k in obs_dict_.keys():
-                        obs_dict_[k][e] = info.get('new_obs')[k]
-                    ep_num += 1
+            mb_obs_.append(next_obs_dict['observation'].copy())
+            mb_dg.append(next_obs_dict['desired_goal'].copy())
+            mb_ag.append(next_obs_dict['achieved_goal'].copy())
 
             obs_dict = obs_dict_
+
+        if render:
+            video_writer.save()
 
         epinfobuf.extend(epinfos)
         success_history.extend(successes)

@@ -52,9 +52,6 @@ class VecNormalize(VecEnvWrapper):
         self.old_obs = None
         self.old_rews = None
 
-    def __getattr__(self, item):
-        return getattr(self.venv, item)
-
     def __getstate__(self):
         """
         Gets state for pickling.

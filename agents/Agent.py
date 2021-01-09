@@ -5,6 +5,8 @@ import copy
 from .config import AGENT_CONFIG
 from collections import deque
 
+from utils.viewer import VideoWriter
+
 class Agent:
     __metaclass__ = abc.ABCMeta
     def __init__(self,hyperparams):
@@ -93,13 +95,16 @@ class Agent:
             self.value = self.value.eval()
         observation = env.reset()
 
+        img = env.render("rgb_array")
+        video_viewer = VideoWriter(out_dir="./eval.avi", resolution=img.shape[:2][::-1], min_len=0)
+
         while (len(eprew_list) < eval_num):
 
             for key in observation.keys():
                 observation[key] = torch.Tensor(observation[key])
 
             if render:
-                env.render()
+                video_viewer.add_frame(env.render("rgb_array"))
 
             if isinstance(observation, dict):
                 goal = observation["desired_goal"]
@@ -120,6 +125,8 @@ class Agent:
                         success_history.append(info.get('is_success'))
                     for k in observation.keys():
                         observation[k][e] = info.get('new_obs')[k]
+
+        video_viewer.save()
 
         if len(success_history) > 0:
             return eprew_list, success_history
