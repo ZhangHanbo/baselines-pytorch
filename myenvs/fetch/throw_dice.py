@@ -45,18 +45,16 @@ class FetchThrowDiceEnv(fetch_env.FetchEnv, gym_utils.EzPickle):
         gym_utils.EzPickle.__init__(self)
 
     def compute_reward(self, achieved_goal, goal, info):
-        return - (achieved_goal != goal).astype(np.float32)
+        return - (achieved_goal.squeeze(-1) != goal.squeeze(-1)).astype(np.float32)
 
     def _is_success(self, achieved_goal, desired_goal):
-        return (achieved_goal == desired_goal).astype(np.float32)
+        return (achieved_goal.squeeze(-1) == desired_goal.squeeze(-1)).astype(np.float32)
 
     def _sample_goal(self):
         # select a target pose for the dice
         goal = np.random.randint(6)
         return np.array([goal])
 
-    # def _set_action(self, action):
-    #     pass
 
     def _render_callback(self):
         # Visualize target.
@@ -73,6 +71,7 @@ class FetchThrowDiceEnv(fetch_env.FetchEnv, gym_utils.EzPickle):
         object_qpos[3:] = obj_quat
         self.sim.data.set_joint_qpos('target0:joint', object_qpos)
         self.sim.forward()
+
 
     def _get_obs(self):
         # positions
@@ -133,6 +132,8 @@ class FetchThrowDiceEnv(fetch_env.FetchEnv, gym_utils.EzPickle):
         object_qpos[:2] = object_xpos
         self.sim.data.set_joint_qpos('object0:joint', object_qpos)
 
+        self.sim.forward()
+
         self._adjust_gripper(mode="close")
         self._adjust_gripper(mode="raise")
 
@@ -150,29 +151,6 @@ class FetchThrowDiceEnv(fetch_env.FetchEnv, gym_utils.EzPickle):
         for _ in range(10):
             self.step(action)
 
-    def _env_setup(self, initial_qpos):
-        for name, value in initial_qpos.items():
-            self.sim.data.set_joint_qpos(name, value)
-        utils.reset_mocap_welds(self.sim)
-        self.sim.forward()
 
-        # Move end effector into position.
-        init_gripper_target = \
-            np.array([-0.498, 0.005, -0.431 + self.gripper_extra_height]) + self.sim.data.get_site_xpos('robot0:grip')
-        gripper_target = init_gripper_target.copy()
-        # randomize the initial localization of the gripper and object
-        while np.linalg.norm(gripper_target[:2] - init_gripper_target[:2]) < 0.1:
-            gripper_target[:2] = init_gripper_target[:2] + self.np_random.uniform(-self.obj_range, self.obj_range, size=2)
-
-        gripper_rotation = np.array([1., 0., 1., 0.])
-        self.sim.data.set_mocap_pos('robot0:mocap', gripper_target)
-        self.sim.data.set_mocap_quat('robot0:mocap', gripper_rotation)
-        for _ in range(10):
-            self.sim.step()
-
-        # Extract information for sampling goals.
-        self.initial_gripper_xpos = self.sim.data.get_site_xpos('robot0:grip').copy()
-        if self.has_object:
-            self.height_offset = self.sim.data.get_site_xpos('object0')[2]
 
 

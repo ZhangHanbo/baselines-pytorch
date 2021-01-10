@@ -27,7 +27,7 @@ for reward_type in ['sparse', 'dense']:
 
     for i in range(2, 101):
         _kwargs = copy.deepcopy(kwargs)
-        _kwargs["n_bit"] = i
+        _kwargs["n_bits"] = i
         register(
             id='FlipBit{}{:d}-v0'.format(suffix, i),
             entry_point='myenvs.toy:FlipBit',

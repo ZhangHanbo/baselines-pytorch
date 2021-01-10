@@ -2,7 +2,7 @@ HTRPOconfig = {
     'cg_damping': 1e-3,
     'GAE_lambda':0.,
     'reward_decay': 0.95,
-    'max_kl_divergence': 0.001,
+    'max_kl_divergence': 1e-3,
     'goal_space': None,
     'per_decision': True,
     'weighted_is': True,
@@ -16,7 +16,7 @@ HTRPOconfig = {
     'lr': 1e-3,
     # NEED TO FOCUS ON THESE PARAMETERS
     'using_hpg': False,
-    'steps_per_iter': 256,
+    'steps_per_iter': 512,
     'sampled_goal_num': None,
     'value_type': 'FC',
     'using_original_data': False,

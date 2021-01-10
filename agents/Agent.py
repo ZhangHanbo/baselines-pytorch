@@ -95,8 +95,9 @@ class Agent:
             self.value = self.value.eval()
         observation = env.reset()
 
-        img = env.render("rgb_array")
-        video_viewer = VideoWriter(out_dir="./eval.avi", resolution=img.shape[:2][::-1], min_len=0)
+        if render:
+            img = env.render("rgb_array")
+            video_viewer = VideoWriter(out_dir="./eval.avi", resolution=img.shape[:2][::-1], min_len=0)
 
         while (len(eprew_list) < eval_num):
 
@@ -118,15 +119,15 @@ class Agent:
                 actions, _ = self.choose_action(observation, other_data=goal, greedy=True)
             actions = actions.cpu().numpy()
             observation, rewards, dones, infos = env.step(actions)
+
             for e, info in enumerate(infos):
                 if dones[e]:
                     eprew_list.append(info.get('episode')['r'] + self.max_steps)
                     if 'is_success' in info.keys():
                         success_history.append(info.get('is_success'))
-                    for k in observation.keys():
-                        observation[k][e] = info.get('new_obs')[k]
 
-        video_viewer.save()
+        if render:
+            video_viewer.save()
 
         if len(success_history) > 0:
             return eprew_list, success_history

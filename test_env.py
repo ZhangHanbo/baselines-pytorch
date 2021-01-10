@@ -29,14 +29,18 @@ def img2video(imgs, video_dir, fps):
     videoWriter.release()
     print('Finish changing!')
 
-env = myenvs.make("FetchThrow-v0")
-_ = env.reset()
+env = myenvs.make("FetchThrowDice-v0")
 rendered_imgs = []
-rendered_imgs.append(env.render("rgb_array"))
-for i in range(50):
-    action = (np.random.rand(4) - 0.5) * 2
-    # action[4:] = [0, 1, 0, 0]
-    obs, reward, done, info = env.step(action)
-    print(reward)
+for j in range(3):
+    _ = env.reset()
     rendered_imgs.append(env.render("rgb_array"))
+    cv2.imwrite("reset{:d}.png".format(j), rendered_imgs[-1])
+    for i in range(50):
+        action = (np.random.rand(8) - 0.5) * 2
+        obs, reward, done, info = env.step(action)
+        print(reward)
+        print(obs["achieved_goal"])
+        rendered_imgs.append(env.render("rgb_array"))
+
+
 img2video(rendered_imgs, "./output.avi", 24)

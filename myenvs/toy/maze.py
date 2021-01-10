@@ -2,8 +2,9 @@ import re
 import numpy as np
 from scipy.sparse.csgraph import shortest_path
 from gym import spaces
+from gym.core import GoalEnv
 
-class Maze(object):
+class Maze(GoalEnv):
     def __init__(self, layout, max_steps, entries, exits=None, epsilon=0.0, reward_type = 'sparse'):
         self.layout = np.array(layout, dtype=np.int)
         validr, validc = np.nonzero(self.layout)

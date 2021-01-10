@@ -2,8 +2,9 @@ import re
 import numpy as np
 from scipy.sparse.csgraph import shortest_path
 from gym import spaces
+from gym.core import GoalEnv
 
-class FlipBit(object):
+class FlipBit(GoalEnv):
     def __init__(self, n_bits = 8, reward_type = 'sparse'):
         self.n_actions = n_bits
         self.action_space = spaces.Discrete(n_bits)
@@ -24,7 +25,6 @@ class FlipBit(object):
         self.n_steps = 0
         self.state = np.zeros(self.d_observations, dtype=np.int32)
         # self.state = np.random.randint(0, 2, size=self.d_observations, dtype=np.int32)
-        # self.state = np.random.randint(0, 2, size=self.d_observations)
         self.goal = np.random.randint(0, 2, size=self.d_goals, dtype=np.int32)
         state, goal = np.array(self.state), np.array(self.goal)
         obs = {
@@ -76,14 +76,11 @@ class FlipBit(object):
         else:
             return - (dif > 0).astype(np.float32)
 
-    def render(self):
+    def render(self, mode='human'):
         print(self.__repr__())
 
-    def seed(self, seed):
+    def seed(self, seed=np.random.randint(10000)):
         np.random.seed(seed)
 
     def __repr__(self):
         return 'State: {0}. Goal: {1}.'.format(self.state, self.goal)
-
-    def unwrapped(self):
-        return self

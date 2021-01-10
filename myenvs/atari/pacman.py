@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from collections import deque
 
+from gym.core import GoalEnv
 import gym
 from gym import spaces
 
@@ -20,7 +21,7 @@ https://github.com/openai/gym/blob/master/gym/envs/atari/atari_env.py
 """
 
 
-class AtariWrapper():
+class AtariWrapper(GoalEnv):
     """
     ALE wrapper that tries to mimic the options in the DQN paper including the
     preprocessing (except resizing/cropping)
@@ -194,9 +195,6 @@ class AtariWrapper():
 
         self.ale.restoreSystemState(ident)
         self.step(0, force_noop=True)
-
-    def unwrapped(self):
-        return self
 
 
 class LivePlotter():
