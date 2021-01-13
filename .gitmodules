@@ -1,6 +1,3 @@
 [submodule "softgymenvs"]
 	path = softgymenvs
 	url = https://github.com/Xingyu-Lin/softgym
-[submodule "ravensenvs"]
-	path = ravensenvs
-	url = https://github.com/google-research/ravens/tree/master/ravens
