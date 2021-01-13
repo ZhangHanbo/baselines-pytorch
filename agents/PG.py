@@ -104,6 +104,7 @@ class PG(Agent):
         b_points = - torch.ones(size=e_points.size()).type_as(e_points)
         b_points[1:] = e_points[:-1]
         ep_lens = e_points - b_points
+
         assert ep_lens.min().item() > 0, "Some episode lengths are smaller than 0."
         max_len = torch.max(ep_lens).item()
         uncomplete_flag = ep_lens > 0

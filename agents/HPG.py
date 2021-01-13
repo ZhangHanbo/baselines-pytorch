@@ -13,6 +13,8 @@ import pickle
 import os
 import random
 
+import pdb
+
 class HPG(PG):
     __metaclass__ = abc.ABCMeta
     def __init__(self, hyperparams):
@@ -66,23 +68,20 @@ class HPG(PG):
                 ind = ind[:size]
                 self.subgoals = self.subgoals[ind]
             else:
-                dg = np.unique(self.desired_goal.cpu().numpy().round(decimals=2), axis=0)
-                dg_max = np.max(dg, axis=0)
-                dg_min = np.min(dg, axis=0)
-
-                g_ind = (dg_min != dg_max)
-
-                subgoals = self.subgoals[np.sum((self.subgoals[:, g_ind] > dg_max[g_ind]) |
-                                                (self.subgoals[:, g_ind] < dg_min[g_ind]), axis = -1) == 0]
-
-                if subgoals.shape[0] == 0:
-                    dist_to_dg_center = np.linalg.norm(self.subgoals - np.mean(dg, axis = 0), axis=1)
-                    ind_subgoals = np.argsort(dist_to_dg_center)
-                    self.subgoals = np.unique(np.concatenate([
-                        self.subgoals[ind_subgoals[:self.sampled_goal_num]], subgoals
-                    ], axis=0), axis=0)
-                else:
-                    self.subgoals = subgoals
+                # dg = np.unique(self.desired_goal.cpu().numpy().round(decimals=2), axis=0)
+                # dg_max = np.max(dg, axis=0)
+                # dg_min = np.min(dg, axis=0)
+                # g_ind = (dg_min != dg_max)
+                # subgoals = self.subgoals[np.sum((self.subgoals[:, g_ind] > dg_max[g_ind]) |
+                #                                 (self.subgoals[:, g_ind] < dg_min[g_ind]), axis = -1) == 0]
+                # if subgoals.shape[0] == 0:
+                #     dist_to_dg_center = np.linalg.norm(self.subgoals - np.mean(dg, axis = 0), axis=1)
+                #     ind_subgoals = np.argsort(dist_to_dg_center)
+                #     self.subgoals = np.unique(np.concatenate([
+                #         self.subgoals[ind_subgoals[:self.sampled_goal_num]], subgoals
+                #     ], axis=0), axis=0)
+                # else:
+                #     self.subgoals = subgoals
 
                 size = min(self.sampled_goal_num, self.subgoals.shape[0])
 
@@ -487,6 +486,9 @@ class HPG_Gaussian(HPG, PG_Gaussian):
 
             self.n_traj += n_g
 
+        if self.done.numel() == 0:
+            pdb.set_trace()
+
         if self.weight_is:
             h_ratios_sum = torch.sum(h_ratios, dim=0, keepdim = True)
             h_ratios /= h_ratios_sum
@@ -510,6 +512,14 @@ class HPG_Gaussian(HPG, PG_Gaussian):
         self.achieved_goal = torch.Tensor(size = (0,) + self.achieved_goal.size()[1:]).type_as(self.achieved_goal)
         self.desired_goal = torch.Tensor(size = (0,) + self.desired_goal.size()[1:]).type_as(self.desired_goal)
         self.n_traj = 0
+
+    def _is_valid_ep(self, ep_achieved_goals, mode="reward"):
+        if mode == "naive":
+            return np.unique(np.round(ep_achieved_goals, decimals=2), axis=0).shape[0] > 1
+        elif mode == "reward":
+            virtual_desired = np.tile(np.expand_dims(ep_achieved_goals[0], axis=0), (ep_achieved_goals.shape[0], 1))
+            rew = self.reward_fn(ep_achieved_goals, virtual_desired, None).min()
+            return rew < - 0.05
 
     def split_episode(self):
         self.n_traj = 0
@@ -536,9 +546,7 @@ class HPG_Gaussian(HPG, PG_Gaussian):
 
         # TODO: For gym envs, the episode will not end when the goal is achieved, deal with that!
         for i in range(len(endpoints) - 1):
-            is_valid_ep = \
-                np.unique(np.round(self.achieved_goal[endpoints[i]: endpoints[i + 1]].cpu().numpy(), decimals=2),
-                      axis=0).shape[0] > 1
+            is_valid_ep = self._is_valid_ep(self.achieved_goal[endpoints[i]: endpoints[i + 1]].cpu().numpy())
             self.n_valid_ep += is_valid_ep
             # if is_valid_ep:
             episode = {}

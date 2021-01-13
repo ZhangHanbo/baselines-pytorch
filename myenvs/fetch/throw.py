@@ -48,6 +48,7 @@ class FetchThrowEnv(fetch_env.FetchEnv, gym_utils.EzPickle):
 
         return True
 
+
     def _adjust_gripper(self, mode="open"):
         if mode == "open":
             action = np.array([0., 0., 0., 1.])

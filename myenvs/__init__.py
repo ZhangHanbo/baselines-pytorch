@@ -81,4 +81,24 @@ for reward_type in ['sparse', 'dense']:
         max_episode_steps=26,
     )
 
-
+    _rope_kwargs = {
+        'observation_mode': 'key_point',
+        'action_mode': 'picker',
+        'num_picker': 2,
+        'render': True,
+        'headless': True,
+        'horizon': 50,
+        'action_repeat': 8,
+        'render_mode': 'cloth',
+        'num_variations': 1,
+        'use_cached_states': False,
+        'deterministic': False,
+        'save_cached_states': False,
+    }
+    _rope_kwargs.update(kwargs)
+    register(
+        id='RopeConfiguration{}-v0'.format(suffix),
+        entry_point='myenvs.softgym:RopeConfigurationEnv',
+        kwargs=_rope_kwargs,
+        max_episode_steps=50,
+    )

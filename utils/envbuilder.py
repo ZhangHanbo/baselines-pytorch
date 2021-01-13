@@ -1,23 +1,25 @@
-from utils.vec_envs import DummyVecEnv, SubprocVecEnv, VecNormalize, VecFrameStack
 from collections import defaultdict
-import gym
-import myenvs
-
-try:
-    import robosuite as robst
-except Exception as e:
-    "Could not find package robosuite. All relevant environments cannot be used."
 import multiprocessing
 import re
-from utils.atariwrapper import make_atari, wrap_deepmind
 import numpy as np
 import random
-from utils.monitor import Monitor
-
 try:
     from mpi4py import MPI
 except ImportError:
     MPI = None
+
+# import envs
+import gym
+import myenvs
+try:
+    import robosuite as robst
+except Exception as e:
+    "Could not find package robosuite. All relevant environments cannot be used."
+
+# import env wrappers
+from utils.vec_envs import DummyVecEnv, SubprocVecEnv, VecNormalize, VecFrameStack
+from utils.monitor import Monitor
+from utils.atariwrapper import make_atari, wrap_deepmind
 
 _game_envs = defaultdict(set)
 for env in gym.envs.registry.all():

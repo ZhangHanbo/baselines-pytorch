@@ -6,6 +6,9 @@ from gym import spaces
 from tensorboardX import SummaryWriter
 from collections import deque
 
+import sys
+sys.path.append("./softgymenvs/")
+
 from utils.envbuilder import build_env, set_global_seeds
 from utils.vec_envs import space_dim
 from agents import *
