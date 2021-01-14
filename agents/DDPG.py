@@ -159,6 +159,7 @@ class DDPG(Agent):
         self.soft_update(self.t_Critic, self.e_Critic, self.replace_tau)
 
     def save_model(self, save_path):
+        super(DDPG, self).save_model(save_path)
         print("saving models...")
         save_dict_a = {
             'model': self.e_Actor.state_dict(),

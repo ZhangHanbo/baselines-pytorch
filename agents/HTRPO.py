@@ -373,7 +373,7 @@ def run_htrpo_train(env, agent, max_timesteps, logger, eval_interval = None, num
             print("No valid episode was collected. Policy has not been updated.")
 
         if eval_interval and timestep_counter % eval_interval == 0:
-            agent.save_model("output/models/HTRPO")
+            agent.save_model(os.path.join("output/models/HTRPO", env.env_id))
             eval_ret, eval_success = agent.eval_brain(env, render=render, eval_num=num_evals)
             print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
             print("eval_ep_rew:".ljust(20) + str(np.mean(eval_ret)))

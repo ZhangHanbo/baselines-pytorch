@@ -9,6 +9,8 @@ from copy import deepcopy
 from softgym.utils.pyflex_utils import random_pick_and_place, center_object
 from gym import spaces
 import time
+import datetime
+import pdb
 
 class RopeConfigurationEnv(RopeNewEnv):
     def __init__(self, reward_type = "sparse", cached_states_path='rope_configuration_init_states.pkl', **kwargs):
@@ -66,14 +68,15 @@ class RopeConfigurationEnv(RopeNewEnv):
         _shape = achieved_goal.shape[:-1] + (len(self.key_point_indices), 3)
         achieved_goal = achieved_goal.reshape(_shape)
         desired_goal = desired_goal.reshape(_shape)
+        assert np.abs(achieved_goal.mean(-2).sum(-1).max()) < 1e-5
 
         if self._rope_symmetry:
             # the symmetry of the rope
-            dist1 = np.linalg.norm(achieved_goal - desired_goal, axis=-1).mean(-1)
-            dist2 = np.linalg.norm(np.flip(achieved_goal, axis=-2) - desired_goal, axis=-1).mean(-1)
+            dist1 = np.linalg.norm(achieved_goal - desired_goal, axis=-1).max(-1)
+            dist2 = np.linalg.norm(np.flip(achieved_goal, axis=-2) - desired_goal, axis=-1).max(-1)
             dist = np.minimum(dist1, dist2)
         else:
-            dist = np.linalg.norm(achieved_goal - desired_goal, axis=-1).mean(-1)
+            dist = np.linalg.norm(achieved_goal - desired_goal, axis=-1).max(-1)
 
         if self.reward_type == "sparse":
             return - (dist >= self.dist_thresh).astype(np.float32)
@@ -89,8 +92,6 @@ class RopeConfigurationEnv(RopeNewEnv):
         self.prev_reward = 0.
         self.time_step = 0
         obs = self._reset()
-        if self.recording:
-            self.video_frames.append(self.render(mode='rgb_array'))
 
         n_key_points = len(self.key_point_indices)
         achieved_goal = obs.reshape(-1, 3)[:n_key_points].flatten()
@@ -104,14 +105,19 @@ class RopeConfigurationEnv(RopeNewEnv):
     def step(self, action):
         """ If record_continuous_video is set to True, will record an image for each sub-step"""
         frames = []
+        # process action
+        action = action.reshape(-1, 4)
+        action[:, 1] = - 10.
+        action = action.reshape(-1)
         for i in range(self.action_repeat):
             self._step(action)
-            if i % 2 == 0:  # No need to record each step
-                frames.append(self.get_image())
 
         obs = self._get_obs()
 
-        achived_goal = obs.reshape(-1, 3)[:len(self.key_point_indices)].flatten()
+        achived_goal = obs.reshape(-1, 3)[:len(self.key_point_indices)]
+        achived_goal -= achived_goal.mean(0)
+        achived_goal = achived_goal.flatten()
+
         desired_goal = self.goal
         reward = self.compute_reward(achived_goal, desired_goal, None)
 
@@ -122,17 +128,38 @@ class RopeConfigurationEnv(RopeNewEnv):
         }
         info = {'is_success': reward >= - self.dist_thresh}
 
-        if self.recording:
-            self.video_frames.append(self.render(mode='rgb_array'))
         self.time_step += 1
 
         done = False
         if self.time_step >= self.horizon:
             done = True
-        info['flex_env_recorded_frames'] = frames
         return obs, reward, done, info
 
-    def _sample_goal(self, save_goal_img=False):
+    def render_goal(self, target_w, target_h):
+        img = pyflex.render()
+        width, height = self.camera_params['default_camera']['width'], self.camera_params['default_camera']['height']
+        img = img.reshape(height, width, 4)[::-1, :, :3]  # Need to reverse the height dimension
+        img = img[int(0.25 * height):int(0.75 * height), int(0.25 * width):int(0.75 * width)]
+        img = cv2.resize(img.astype(np.uint8), (target_w, target_h))
+        return img
+
+    def render(self, mode='rgb_array'):
+        if mode == 'rgb_array':
+            img = pyflex.render()
+            width, height = self.camera_params['default_camera']['width'], self.camera_params['default_camera']['height']
+            img = img.reshape(height, width, 4)[::-1, :, :3]  # Need to reverse the height dimension
+            goal_img = self.goal_img.copy()
+            # attach goal patch on the rendered image
+            goal_img[:10, :, :] = 0
+            goal_img[:, :10, :] = 0
+            goal_img[-10:, :, :] = 0
+            goal_img[:, -10:, :] = 0
+            img[30:230, 30:230] = goal_img
+            return img
+        elif mode == 'human':
+            raise NotImplementedError
+
+    def _sample_goal(self):
         # reset scene
         config = self.cached_configs[0]
         init_state = self.cached_init_states[0]
@@ -141,7 +168,7 @@ class RopeConfigurationEnv(RopeNewEnv):
         self.key_point_indices = self._get_key_point_idx(rope_particle_num)
 
         # randomize the goal.
-        random_pick_and_place(pick_num=4, pick_scale=0.005)
+        random_pick_and_place(pick_num=10, pick_scale=0.001)
         center_object()
 
         # read goal state
@@ -150,14 +177,9 @@ class RopeConfigurationEnv(RopeNewEnv):
         goal = keypoint_pos.flatten()
 
         # visualize the goal scene
-        if save_goal_img:
-            # rendering needs the action_tool being initialized.
-            if hasattr(self, 'action_tool'):
-                self.action_tool.reset([10, 10, 10])
-            save_name = str(time.time())
-            goal_img = self.render(mode='rgb_array')
-            cv2.imwrite(osp.join(self._goal_save_dir, save_name + ".png"), goal_img[:, :, ::-1])
-
+        if hasattr(self, 'action_tool'):
+            self.action_tool.reset([10, 10, 10])
+        self.goal_img = self.render_goal(200, 200)
         return goal
 
     def _reset(self):

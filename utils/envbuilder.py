@@ -10,6 +10,7 @@ except ImportError:
 
 # import envs
 import gym
+from gym import spaces
 import myenvs
 try:
     import robosuite as robst
@@ -20,6 +21,7 @@ except Exception as e:
 from utils.vec_envs import DummyVecEnv, SubprocVecEnv, VecNormalize, VecFrameStack
 from utils.monitor import Monitor
 from utils.atariwrapper import make_atari, wrap_deepmind
+from utils.wrapper import ActionNormalizer
 
 _game_envs = defaultdict(set)
 for env in gym.envs.registry.all():
@@ -127,6 +129,9 @@ def make_env(env_id, env_type, subrank=0, seed=None, wrapper_kwargs=None,
     else:
         env = gym.make(env_id)
         env.max_episode_steps = env.spec.max_episode_steps
+
+    if isinstance(env.action_space, spaces.Box):
+        env = ActionNormalizer(env)
 
     if flatten_dict_observations and isinstance(env.observation_space, gym.spaces.Dict):
         keys = []

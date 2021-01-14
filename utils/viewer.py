@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import pdb
 
 class VideoWriter(object):
 
@@ -20,11 +21,10 @@ class VideoWriter(object):
             self.imgs.append(img)
 
     def save(self):
-        if len(self.imgs) > self.fps * self.min_video_len:
-            for img in self.imgs:
-                frame = img[:, :, ::-1] # RGB to BGR
-                self.videowriter.write(frame)
+        for img in self.imgs:
+            frame = img[:, :, ::-1] # RGB to BGR
+            self.videowriter.write(frame.astype(np.uint8))
 
-            self.videowriter.release()
-            self.reset()
-            print('Finish!')
+        self.videowriter.release()
+        self.reset()
+        print('Finish!')

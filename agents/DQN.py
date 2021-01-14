@@ -89,6 +89,7 @@ class DQN(Agent):
         self.learn_step_counter += 1
 
     def save_model(self, save_path):
+        super(DQN, self).save_model(save_path)
         print("saving models...")
         save_dict = {
             'model': self.e_DQN.state_dict(),

@@ -219,6 +219,7 @@ class PG(Agent):
         self.policy_ent = self.compute_entropy().item()
 
     def save_model(self, save_path):
+        super(PG, self).save_model(save_path)
         print("saving models...")
         save_dict = {
             'model': self.policy.state_dict(),

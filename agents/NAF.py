@@ -115,6 +115,7 @@ class NAF(Agent):
                      if self.noise > self.noise_min else self.noise_min
 
     def save_model(self, save_path):
+        super(NAF, self).save_model(save_path)
         print("saving models...")
         save_dict = {
             'model': self.e_NAF.state_dict(),

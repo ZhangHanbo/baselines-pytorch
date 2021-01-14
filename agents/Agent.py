@@ -6,6 +6,8 @@ from .config import AGENT_CONFIG
 from collections import deque
 
 from utils.viewer import VideoWriter
+import os
+import sys
 
 class Agent:
     __metaclass__ = abc.ABCMeta
@@ -79,9 +81,9 @@ class Agent:
         self.done = self.done.cuda()
         self.logpac_old = self.logpac_old.cuda()
 
-    @abc.abstractmethod
     def save_model(self, save_path):
-        raise NotImplementedError("Must be implemented in subclass.")
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
 
     @abc.abstractmethod
     def load_model(self, load_path, load_point):
@@ -99,6 +101,7 @@ class Agent:
             img = env.render("rgb_array")
             video_viewer = VideoWriter(out_dir="./eval.avi", resolution=img.shape[:2][::-1], min_len=0)
 
+        eval_counter = 0
         while (len(eprew_list) < eval_num):
 
             for key in observation.keys():
@@ -122,6 +125,9 @@ class Agent:
 
             for e, info in enumerate(infos):
                 if dones[e]:
+                    eval_counter += 1
+                    sys.stdout.write("Evaluation finished: {:d}/{:d}\r".format(eval_counter, eval_num))
+                    sys.stdout.flush()
                     eprew_list.append(info.get('episode')['r'] + self.max_steps)
                     if 'is_success' in info.keys():
                         success_history.append(info.get('is_success'))

@@ -14,6 +14,9 @@ from softgym.registered_env import env_arg_dict, SOFTGYM_ENVS
 from softgym.utils.normalized_env import normalize
 from softgym.utils.visualization import save_numpy_as_gif
 
+sys.path.append("./ravensenvs/")
+
+
 _game_envs = defaultdict(set)
 for env in gym.envs.registry.all():
     env_type = env.entry_point.split(':')[0].split('.')[-1]
@@ -37,20 +40,20 @@ def img2video(imgs, video_dir, fps):
     print('Finish changing!')
 
 def main_my_own():
-    env = myenvs.make("FetchThrowDice-v0")
+    env = myenvs.make("FetchThrow-v0")
     rendered_imgs = []
     for j in range(3):
         _ = env.reset()
         rendered_imgs.append(env.render("rgb_array"))
         cv2.imwrite("reset{:d}.png".format(j), rendered_imgs[-1])
         for i in range(50):
-            action = (np.random.rand(8) - 0.5) * 2
+            action = (np.random.rand(4) - 0.5) * 2
             obs, reward, done, info = env.step(action)
             print(reward)
             print(obs["achieved_goal"])
             rendered_imgs.append(env.render("rgb_array"))
 
-    img2video(rendered_imgs, "./output.avi", 24)
+    img2video(rendered_imgs, "./FetchThrow.avi", 24)
 
 def main_softgym():
     parser = argparse.ArgumentParser(description='Process some integers.')
@@ -76,8 +79,8 @@ def main_softgym():
         env.reset()
         frames.append(env.get_image(img_size, img_size))
         for i in range(env.horizon):
-            # action = env.action_space.sample()
-            action = np.zeros(env.action_space.shape)
+            action = env.action_space.sample()
+            # action = np.zeros(env.action_space.shape)
             # By default, the environments will apply action repitition. The option of record_continuous_video provides rendering of all
             # intermediate frames. Only use this option for visualization as it increases computation.
             obs, rew, _, info = env.step(action, record_continuous_video=True, img_size=img_size)
@@ -96,20 +99,29 @@ def main_my_softgym():
     img_size = 256
 
     frames = []
-    for j in range(5):
+    for j in range(20):
         env.reset()
         frames.append(env.get_image(img_size, img_size))
-        for i in range(env.horizon):
-            action = np.zeros(env.action_space.shape)
+        achieved_goals = []
+        for i in range(50):
+            # action = np.zeros(env.action_space.shape)
+            action = env.action_space.sample()
             # By default, the environments will apply action repitition. The option of record_continuous_video provides rendering of all
             # intermediate frames. Only use this option for visualization as it increases computation.
             obs, rew, _, info = env.step(action)
             # frames.extend(info['flex_env_recorded_frames'])
             frames.append(env.get_image(img_size, img_size))
-            print(obs)
+            # print(obs["observation"].reshape(-1 ,3))
+            achieved_goals.append(np.expand_dims(obs["achieved_goal"], axis=0))
+        achieved_goals = np.concatenate(achieved_goals, axis = 0)
+        print(env.compute_reward(
+            achieved_goal=achieved_goals,
+            desired_goal=np.tile(np.expand_dims(achieved_goals[0], axis=0), (achieved_goals.shape[0], 1)),
+            info=None
+        ))
 
     save_name = osp.join(".", 'RopeConfiguration.avi')
     img2video(frames, save_name, 24)
     print('Video generated and save to {}'.format(save_name))
 
-main_softgym()
+main_my_softgym()

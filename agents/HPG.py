@@ -124,10 +124,10 @@ class HPG(PG):
         raise NotImplementedError("Must be implemented in subclass.")
 
     def save_model(self, save_path):
+        super(HPG, self).save_model(save_path)
         if self.norm_ob:
             with open(os.path.join(save_path, 'normalizer' + str(self.learn_step_counter) + '.pkl'), 'wb') as f:
                 pickle.dump(self.ob_rms, f)
-        PG.save_model(self, save_path)
 
     def load_model(self, load_path, load_point):
         if self.norm_ob:
@@ -519,6 +519,7 @@ class HPG_Gaussian(HPG, PG_Gaussian):
         elif mode == "reward":
             virtual_desired = np.tile(np.expand_dims(ep_achieved_goals[0], axis=0), (ep_achieved_goals.shape[0], 1))
             rew = self.reward_fn(ep_achieved_goals, virtual_desired, None).min()
+            print(self.reward_fn(ep_achieved_goals, virtual_desired, None))
             return rew < - 0.05
 
     def split_episode(self):
