@@ -6,25 +6,28 @@ from ravens.environments.environments import *
 from ravens.utils import pybullet_utils
 from ravens.tasks.manipulating_rope import ManipulatingRope
 
-class ManipulateRope(Environment):
+class DragRope(Environment):
 
     def __init__(self):
-        super(ManipulateRope, self).__init__(assets_root="ravensenvs/", disp=False,
+        super(DragRope, self).__init__(assets_root="ravensenvs/", disp=False,
                                              shared_memory=False, hz=480)
         task = ManipulatingRope()
         self.set_task(task)
 
+
     def _get_obs(self):
-        # joint position and velocity
-        ur5_joint_states = np.array([p.getJointState(self.ur5, i)[:2].tolist() for i in self.joints]).transpose((0, 1)).flatten()
-        # end effector position and velocity
-        ur5_ee_states = np.concatenate(p.getLinkState(self.ur5, self.ee_tip)[:2])
         obj_states = []
         for obj_ids in self.obj_ids.values():
             for obj_id in obj_ids:
                 obj_states.append(np.concatenate(p.getBasePositionAndOrientation(obj_id)))
         obj_states = np.concatenate(obj_states)
-        return np.concatenate((ur5_joint_states, ur5_ee_states, obj_states))
+        return obj_states
+
+
+    def _get_achieved_goal(self):
+        rope_particle_ids = (self.task.goals[0][0][0], self.task.goals[0][-1][0])
+        end_particle_pos = (p.getBasePositionAndOrientation(i)[0] for i in rope_particle_ids)
+        return np.concatenate(end_particle_pos)
 
 
     def reset(self):
@@ -65,6 +68,8 @@ class ManipulateRope(Environment):
 
         # Reset task.
         self.task.reset(self)
+        self.goal = self.task.goals[-1][2]
+        self.goal = np.concatenate((self.goal[0][0], self.goal[-1][0]))
 
         # Re-enable rendering.
         p.configureDebugVisualizer(p.COV_ENABLE_RENDERING, 1)
@@ -119,3 +124,4 @@ class ManipulateRope(Environment):
             obs['depth'] += (depth,)
 
         return obs, reward, done, info
+

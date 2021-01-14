@@ -42,6 +42,7 @@ class CumSparseReward(gym.Wrapper):
     def compute_reward(self, achieved_goal, desired_goal, info):
         # info should include the timestep infomation
         curr_steps = info["steps"]
+        # TODO: UNFINISHED HERE
 
 class ActionNormalizer(gym.Wrapper):
     def __init__(self, env):

@@ -519,7 +519,6 @@ class HPG_Gaussian(HPG, PG_Gaussian):
         elif mode == "reward":
             virtual_desired = np.tile(np.expand_dims(ep_achieved_goals[0], axis=0), (ep_achieved_goals.shape[0], 1))
             rew = self.reward_fn(ep_achieved_goals, virtual_desired, None).min()
-            print(self.reward_fn(ep_achieved_goals, virtual_desired, None))
             return rew < - 0.05
 
     def split_episode(self):

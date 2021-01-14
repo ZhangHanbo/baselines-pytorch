@@ -68,7 +68,6 @@ class RopeConfigurationEnv(RopeNewEnv):
         _shape = achieved_goal.shape[:-1] + (len(self.key_point_indices), 3)
         achieved_goal = achieved_goal.reshape(_shape)
         desired_goal = desired_goal.reshape(_shape)
-        assert np.abs(achieved_goal.mean(-2).sum(-1).max()) < 1e-5
 
         if self._rope_symmetry:
             # the symmetry of the rope
@@ -113,10 +112,9 @@ class RopeConfigurationEnv(RopeNewEnv):
             self._step(action)
 
         obs = self._get_obs()
-
-        achived_goal = obs.reshape(-1, 3)[:len(self.key_point_indices)]
-        achived_goal -= achived_goal.mean(0)
-        achived_goal = achived_goal.flatten()
+        achived_goal = obs.copy().reshape(-1, 3)[:len(self.key_point_indices)].flatten()
+        # achived_goal = self._normalize_points(achived_goal)
+        # obs = self._normalize_points(obs)
 
         desired_goal = self.goal
         reward = self.compute_reward(achived_goal, desired_goal, None)
@@ -159,13 +157,30 @@ class RopeConfigurationEnv(RopeNewEnv):
         elif mode == 'human':
             raise NotImplementedError
 
+    def _get_key_point_idx(self, num=None, key_point_num=4):
+        indices = [0]
+        key_point_num -= 2
+        interval = (num - 2) // key_point_num
+        for i in range(1, 1 + key_point_num):
+            indices.append(i * interval)
+        indices.append(num - 1)
+
+        return indices
+
+    def _normalize_points(self, points):
+        input_shape = points.shape
+        pos = pyflex.get_positions().reshape(-1, 4)
+        points = points.reshape(-1 ,3)
+        points[:, [0, 2]] -= np.mean(pos[:, [0, 2]], axis=0, keepdims=True)
+        return points.reshape(input_shape)
+
     def _sample_goal(self):
         # reset scene
         config = self.cached_configs[0]
         init_state = self.cached_init_states[0]
         self.set_scene(config, init_state)
         rope_particle_num = config['segment'] + 1
-        self.key_point_indices = self._get_key_point_idx(rope_particle_num)
+        self.key_point_indices = self._get_key_point_idx(rope_particle_num, 4)
 
         # randomize the goal.
         random_pick_and_place(pick_num=10, pick_scale=0.001)
@@ -186,20 +201,13 @@ class RopeConfigurationEnv(RopeNewEnv):
         config = self.current_config
         self.rope_length = config['segment'] * config['radius'] * 0.5
 
-        # set reward range
-        self.reward_max = 0
         rope_particle_num = config['segment'] + 1
-        self.key_point_indices = self._get_key_point_idx(rope_particle_num)
+        self.key_point_indices = self._get_key_point_idx(rope_particle_num, 4)
 
         if hasattr(self, 'action_tool'):
             curr_pos = pyflex.get_positions().reshape([-1, 4])
             cx, cy = self._get_center_point(curr_pos)
             self.action_tool.reset([cx, 0.1, cy])
-
-        # set reward range
-        self.reward_max = 0
-        self.reward_min = -self.rope_length
-        self.reward_range = self.reward_max - self.reward_min
 
         return self._get_obs()
 
