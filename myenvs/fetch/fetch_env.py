@@ -183,7 +183,12 @@ class FetchEnv(robot_env.RobotEnv):
         gripper_rotation = np.array([1., 0., 1., 0.])
         self.sim.data.set_mocap_pos('robot0:mocap', gripper_target)
         self.sim.data.set_mocap_quat('robot0:mocap', gripper_rotation)
-        for _ in range(10):
+
+        object_qpos = self.sim.data.get_joint_qpos('object0:joint')
+        assert object_qpos.shape == (7,)
+        object_qpos[2] = 0.45
+        self.sim.data.set_joint_qpos('object0:joint', object_qpos)
+        for _ in range(100):
             self.sim.step()
 
         # Extract information for sampling goals.

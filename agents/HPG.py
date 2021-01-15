@@ -133,9 +133,10 @@ class HPG(PG):
         if self.norm_ob:
             with open(os.path.join(load_path, 'normalizer' + str(load_point) + '.pkl'), 'rb') as f:
                 self.ob_rms = pickle.load(f)
-                self.ob_mean = np.concatenate((self.ob_rms['observation'].mean, self.ob_rms['desired_goal'].mean),
-                                              axis=-1)
-                self.ob_var = np.concatenate((self.ob_rms['observation'].var, self.ob_rms['desired_goal'].var), axis=-1)
+                self.ob_mean = self.ob_rms['observation'].mean
+                self.goal_mean = self.ob_rms['desired_goal'].mean
+                self.ob_var = self.ob_rms['observation'].var
+                self.goal_var = self.ob_rms['desired_goal'].var
         PG.load_model(self, load_path, load_point)
 
     def data_preprocess(self):

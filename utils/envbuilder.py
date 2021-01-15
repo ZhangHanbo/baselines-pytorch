@@ -23,6 +23,8 @@ from utils.monitor import Monitor
 from utils.atariwrapper import make_atari, wrap_deepmind
 from utils.wrapper import ActionNormalizer
 
+import pdb
+
 _game_envs = defaultdict(set)
 for env in gym.envs.registry.all():
     env_type = env.entry_point.split(':')[0].split('.')[-1]
@@ -79,7 +81,7 @@ def build_env(args):
     else:
         flatten_dict_observations = alg not in {'HTRPO', 'HPG'}
         env = make_vec_env(env_id, env_type, args.num_envs or 1, seed,
-                           flatten_dict_observations=flatten_dict_observations, render = args.render, reward = args.reward)
+                           flatten_dict_observations=flatten_dict_observations)
 
         if env_type in {'mujoco', 'robotics', 'robotsuite'} and alg not in {'HTRPO', 'HPG'}:
            env = VecNormalize(env, norm_obs=not args.unnormobs, norm_reward=not args.unnormret)
@@ -106,8 +108,6 @@ def make_vec_env(env_id, env_type, num_env, seed,
             seed=seed,
             wrapper_kwargs=wrapper_kwargs,
             flatten_dict_observations=flatten_dict_observations,
-            render = render,
-            reward = reward
         )
 
     set_global_seeds(seed)
@@ -119,7 +119,7 @@ def make_vec_env(env_id, env_type, num_env, seed,
 
 
 def make_env(env_id, env_type, subrank=0, seed=None, wrapper_kwargs=None,
-             flatten_dict_observations = True, render = False, reward = "sparse"):
+             flatten_dict_observations = True):
     wrapper_kwargs = wrapper_kwargs or {}
     if env_type == 'atari':
         env = make_atari(env_id)

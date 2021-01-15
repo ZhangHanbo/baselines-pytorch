@@ -47,13 +47,14 @@ def main_my_own():
         rendered_imgs.append(env.render("rgb_array"))
         cv2.imwrite("reset{:d}.png".format(j), rendered_imgs[-1])
         for i in range(50):
-            action = (np.random.rand(4) - 0.5) * 2
+            action = env.action_space.sample()
+            action[2] += 0.5
             obs, reward, done, info = env.step(action)
             print(reward)
             print(obs["achieved_goal"])
             rendered_imgs.append(env.render("rgb_array"))
 
-    img2video(rendered_imgs, "./FetchThrow.avi", 24)
+    img2video(rendered_imgs, "./FetchThrowRubberBall.avi", 24)
 
 def main_softgym():
     parser = argparse.ArgumentParser(description='Process some integers.')
@@ -124,4 +125,4 @@ def main_my_softgym():
     img2video(frames, save_name, 24)
     print('Video generated and save to {}'.format(save_name))
 
-main_my_softgym()
+main_my_own()

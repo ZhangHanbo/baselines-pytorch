@@ -19,6 +19,13 @@ register(
     max_episode_steps=50,
 )
 
+register(
+    id='FetchThrowRubberBall-v0',
+    entry_point='myenvs.fetch:FetchThrowRubberBallEnv',
+    kwargs={},
+    max_episode_steps=50,
+)
+
 for reward_type in ['sparse', 'dense']:
     suffix = 'Dense' if reward_type == 'dense' else ''
     kwargs = {

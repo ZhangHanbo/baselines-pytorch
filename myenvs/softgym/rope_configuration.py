@@ -20,11 +20,13 @@ class RopeConfigurationEnv(RopeNewEnv):
         :param kwargs:
         """
 
+        kwargs["num_picker"] = 1
         super().__init__(**kwargs)
         self.prev_distance_diff = None
         self.get_cached_configs_and_states(cached_states_path, self.num_variations)
 
-        self.dist_thresh = 0.05
+        self._num_key_points = 6
+        self.dist_thresh = 0.03
         self.reward_type = reward_type
 
         # disable the patch_deprecated_methods during registration
@@ -91,9 +93,7 @@ class RopeConfigurationEnv(RopeNewEnv):
         self.prev_reward = 0.
         self.time_step = 0
         obs = self._reset()
-
-        n_key_points = len(self.key_point_indices)
-        achieved_goal = obs.reshape(-1, 3)[:n_key_points].flatten()
+        achieved_goal = obs.reshape(-1, 3)[:self._num_key_points].flatten()
 
         return {
             "observation": obs.copy(),
@@ -112,9 +112,9 @@ class RopeConfigurationEnv(RopeNewEnv):
             self._step(action)
 
         obs = self._get_obs()
-        achived_goal = obs.copy().reshape(-1, 3)[:len(self.key_point_indices)].flatten()
-        # achived_goal = self._normalize_points(achived_goal)
-        # obs = self._normalize_points(obs)
+        achived_goal = obs.copy().reshape(-1, 3)[:self._num_key_points].flatten()
+        achived_goal = self._normalize_points(achived_goal)
+        obs = self._normalize_points(obs)
 
         desired_goal = self.goal
         reward = self.compute_reward(achived_goal, desired_goal, None)
@@ -159,12 +159,11 @@ class RopeConfigurationEnv(RopeNewEnv):
 
     def _get_key_point_idx(self, num=None, key_point_num=4):
         indices = [0]
-        key_point_num -= 2
-        interval = (num - 2) // key_point_num
-        for i in range(1, 1 + key_point_num):
+        n_mid_points = key_point_num - 2
+        interval = (num - 2) // n_mid_points
+        for i in range(1, 1 + n_mid_points):
             indices.append(i * interval)
         indices.append(num - 1)
-
         return indices
 
     def _normalize_points(self, points):
@@ -180,7 +179,7 @@ class RopeConfigurationEnv(RopeNewEnv):
         init_state = self.cached_init_states[0]
         self.set_scene(config, init_state)
         rope_particle_num = config['segment'] + 1
-        self.key_point_indices = self._get_key_point_idx(rope_particle_num, 4)
+        self.key_point_indices = self._get_key_point_idx(rope_particle_num, self._num_key_points)
 
         # randomize the goal.
         random_pick_and_place(pick_num=10, pick_scale=0.001)
@@ -202,7 +201,7 @@ class RopeConfigurationEnv(RopeNewEnv):
         self.rope_length = config['segment'] * config['radius'] * 0.5
 
         rope_particle_num = config['segment'] + 1
-        self.key_point_indices = self._get_key_point_idx(rope_particle_num, 4)
+        self.key_point_indices = self._get_key_point_idx(rope_particle_num, self._num_key_points)
 
         if hasattr(self, 'action_tool'):
             curr_pos = pyflex.get_positions().reshape([-1, 4])

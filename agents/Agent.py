@@ -4,10 +4,13 @@ import abc
 import copy
 from .config import AGENT_CONFIG
 from collections import deque
+import numpy as np
 
 from utils.viewer import VideoWriter
 import os
 import sys
+
+import pdb
 
 class Agent:
     __metaclass__ = abc.ABCMeta
@@ -89,7 +92,7 @@ class Agent:
     def load_model(self, load_path, load_point):
         raise NotImplementedError("Must be implemented in subclass.")
 
-    def eval_brain(self, env, render=True, eval_num=None):
+    def eval_brain(self, env, render=True, eval_num=None, greedy=True):
         eprew_list = deque(maxlen=eval_num)
         success_history = deque(maxlen=eval_num)
         self.policy = self.policy.eval()
@@ -98,17 +101,14 @@ class Agent:
         observation = env.reset()
 
         if render:
-            img = env.render("rgb_array")
-            video_viewer = VideoWriter(out_dir="./eval.avi", resolution=img.shape[:2][::-1], min_len=0)
+            obs_img = env.render("rgb_array")
+            video_viewer = VideoWriter(out_dir="./eval.avi", resolution=obs_img.shape[:2][::-1], min_len=0)
 
         eval_counter = 0
         while (len(eprew_list) < eval_num):
 
             for key in observation.keys():
                 observation[key] = torch.Tensor(observation[key])
-
-            if render:
-                video_viewer.add_frame(env.render("rgb_array"))
 
             if isinstance(observation, dict):
                 goal = observation["desired_goal"]
@@ -117,10 +117,16 @@ class Agent:
                 goal = None
 
             if not self.dicrete_action:
-                actions, _, _, _ = self.choose_action(observation, other_data=goal, greedy=True)
+                actions, _, _, _ = self.choose_action(observation, other_data=goal, greedy=greedy)
             else:
-                actions, _ = self.choose_action(observation, other_data=goal, greedy=True)
+                actions, _ = self.choose_action(observation, other_data=goal, greedy=greedy)
             actions = actions.cpu().numpy()
+
+            # before each step, read the rendered scene
+            if render:
+                obs_img = env.render("rgb_array")
+                video_viewer.add_frame(obs_img)
+
             observation, rewards, dones, infos = env.step(actions)
 
             for e, info in enumerate(infos):
@@ -132,6 +138,11 @@ class Agent:
                     if 'is_success' in info.keys():
                         success_history.append(info.get('is_success'))
 
+                    # if num_envs is 1, repeat the last frame so that it is clearer.
+                    if render and hasattr(env, "num_envs") and env.num_envs == 1:
+                        for _ in range(video_viewer.fps):
+                            video_viewer.add_frame(obs_img.copy())
+
         if render:
             video_viewer.save()
 
@@ -139,3 +150,11 @@ class Agent:
             return eprew_list, success_history
         else:
             return eprew_list
+
+def run_test(env, agent, num_evals = 5, render = False, greedy=True):
+
+    eval_ret, eval_success = agent.eval_brain(env, render=render, eval_num=num_evals, greedy=greedy)
+    print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+    print("eval_ep_rew:".ljust(20) + str(np.mean(eval_ret)))
+    print("eval_suc_rate:".ljust(20) + str(np.mean(eval_success)))
+    print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
