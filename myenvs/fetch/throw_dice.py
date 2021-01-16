@@ -41,7 +41,7 @@ class FetchThrowDiceEnv(fetch_env.FetchEnv, gym_utils.EzPickle):
             self, MODEL_XML_PATH, has_object=True, block_gripper=False, n_substeps=20,
             gripper_extra_height=0.0, target_in_the_air=False, target_offset=np.array([0.4, 0.0, 0.0]),
             obj_range=0.15, target_range=0.3, distance_threshold=0.05,
-            initial_qpos=initial_qpos, reward_type=reward_type, n_actions=8)
+            initial_qpos=initial_qpos, reward_type=reward_type, n_actions=4)
         gym_utils.EzPickle.__init__(self)
 
     def compute_reward(self, achieved_goal, goal, info):
@@ -53,7 +53,7 @@ class FetchThrowDiceEnv(fetch_env.FetchEnv, gym_utils.EzPickle):
     def _sample_goal(self):
         # select a target pose for the dice
         goal = np.random.randint(6)
-        return np.array([goal])
+        return np.array([goal], dtype=np.float32)
 
 
     def _render_callback(self):
@@ -67,7 +67,7 @@ class FetchThrowDiceEnv(fetch_env.FetchEnv, gym_utils.EzPickle):
         object_qpos = self.sim.data.get_joint_qpos('target0:joint')
         assert object_qpos.shape == (7,)
         object_qpos[:3] = np.array([1.32441906, 0.75018422, 0.301])
-        obj_quat = self._dice_poses[self.goal[0]]
+        obj_quat = self._dice_poses[int(self.goal[0])]
         object_qpos[3:] = obj_quat
         self.sim.data.set_joint_qpos('target0:joint', object_qpos)
         self.sim.forward()
@@ -86,6 +86,7 @@ class FetchThrowDiceEnv(fetch_env.FetchEnv, gym_utils.EzPickle):
         # velocities
         object_velp = self.sim.data.get_site_xvelp('object0') * dt
         object_velr = self.sim.data.get_site_xvelr('object0') * dt
+        is_static = np.linalg.norm(object_velp) < 1e-3
 
         # gripper state
         object_rel_pos = object_pos - grip_pos
@@ -95,17 +96,21 @@ class FetchThrowDiceEnv(fetch_env.FetchEnv, gym_utils.EzPickle):
         gripper_vel = robot_qvel[-2:] * dt  # change to a scalar if the gripper is made symmetric
 
         in_the_air = False
-        if object_pos[2] > 0.43:
+        if object_pos[2] > self.height_offset + 0.025:
             in_the_air = True
 
-        if not in_the_air:
+        off_the_table = False
+        if object_pos[2] < self.height_offset - 0.025:
+            off_the_table = True
+
+        if is_static and not in_the_air and not off_the_table:
             vert_vec = ((0,), (0,), (1,))
             obj_rotmat = self.sim.data.get_site_xmat('object0')
             obj_inv_rotmat = np.mat(obj_rotmat).I
             vert_vec = obj_inv_rotmat.dot(np.array(vert_vec)).reshape(1, 3)
-            achieved_goal = np.array([np.linalg.norm(vert_vec - self._dice_norms, axis=1).argmin()])
+            achieved_goal = np.array([np.linalg.norm(vert_vec - self._dice_norms, axis=1).argmin()], dtype=np.float32)
         else:
-            achieved_goal = np.array([-1], dtype=np.int32)
+            achieved_goal = np.array([-np.inf])
 
         obs = np.concatenate([
             grip_pos, object_pos.ravel(), object_rel_pos.ravel(), gripper_state, object_rot.ravel(),
@@ -141,15 +146,21 @@ class FetchThrowDiceEnv(fetch_env.FetchEnv, gym_utils.EzPickle):
 
     def _adjust_gripper(self, mode="open"):
         if mode == "open":
-            action = np.array([0., 0., 0., 1., 1., 0., 1., 0.])
+            action = np.array([0., 0., 0., 1.])
         elif mode == "close":
-            action = np.array([0., 0., 0., -1., 1., 0., 1., 0.])
+            action = np.array([0., 0., 0., -1.])
         elif mode == "raise":
-            action = np.array([0., 0., 0.5, -1., 1., 0., 1., 0.])
+            action = np.array([0., 0., 0.5, -1.])
         else:
             raise ValueError
         for _ in range(10):
             self.step(action)
+
+        if mode == "raise":
+            for _ in range(10):
+                action = (np.random.rand(4) - 0.5) * 2
+                action[-1] = -1
+                self.step(action)
 
 
 

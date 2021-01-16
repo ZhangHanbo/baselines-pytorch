@@ -107,6 +107,7 @@ if __name__ == "__main__":
     env, env_type, env_id = build_env(args)
     env.env_id = env_id
     env.env_type = env_type
+    env.alg = args.alg
     env_obs_space = env.observation_space
     env_act_space = env.action_space
     n_states = space_dim(env_obs_space)

@@ -1,18 +1,82 @@
 import pybullet as p
 import numpy as np
 import os
+import gym
+from gym import spaces
 
 from ravens.environments.environments import *
-from ravens.utils import pybullet_utils
+from ravens.utils import pybullet_utils, utils
 from ravens.tasks.manipulating_rope import ManipulatingRope
 
-class DragRope(Environment):
+
+class Drag():
+    """Pick and place primitive."""
+
+    def __init__(self, movep, movej, ee, height=0.32, speed=0.01):
+        self.height, self.speed = height, speed
+        self.movep, self.movej, self.ee = movep, movej, ee
+        self.picked = False
+
+    def init_pick(self, pick_pose):
+        # Execute picking primitive.
+        prepick_to_pick = ((0, 0, 0.32), (0, 0, 0, 1))
+        postpick_to_pick = ((0, 0, self.height), (0, 0, 0, 1))
+        prepick_pose = utils.multiply(pick_pose, prepick_to_pick)
+        postpick_pose = utils.multiply(pick_pose, postpick_to_pick)
+        timeout = self.movep(prepick_pose)
+
+        # Move towards pick pose until contact is detected.
+        delta = (np.float32([0, 0, -0.001]),
+               utils.eulerXYZ_to_quatXYZW((0, 0, 0)))
+        targ_pose = prepick_pose
+        while not self.ee.detect_contact():  # and target_pose[2] > 0:
+            targ_pose = utils.multiply(targ_pose, delta)
+            timeout |= self.movep(targ_pose)
+            if timeout:
+                return True
+
+        # Activate end effector, move up, and check picking success.
+        self.ee.activate()
+        timeout |= self.movep(postpick_pose, self.speed)
+        pick_success = self.ee.check_grasp()
+        return pick_success
+
+    def __call__(self, place_pose):
+        delta = (np.float32([0, 0, -0.001]),
+                 utils.eulerXYZ_to_quatXYZW((0, 0, 0)))
+        self.picked = self.ee.check_grasp()
+
+        # Execute placing primitive if pick is successful.
+        timeout = False
+        if self.picked:
+            preplace_to_place = ((0, 0, self.height), (0, 0, 0, 1))
+            preplace_pose = utils.multiply(place_pose, preplace_to_place)
+            targ_pose = preplace_pose
+            while not self.ee.detect_contact():
+                targ_pose = utils.multiply(targ_pose, delta)
+                timeout |= self.movep(targ_pose, self.speed)
+                if timeout:
+                    return True
+        return timeout
+
+
+class DragRopeEnv(Environment):
 
     def __init__(self):
-        super(DragRope, self).__init__(assets_root="ravensenvs/", disp=False,
+        super(DragRopeEnv, self).__init__(assets_root="ravensenvs/", disp=False,
                                              shared_memory=False, hz=480)
         task = ManipulatingRope()
+        task.primitive = Drag(self.movep, self.movej, self.ee)
         self.set_task(task)
+        self.task.reset()
+        self.action_space = gym.spaces.Box(-1.0, 1.0, shape=(4,), dtype=np.float32)
+        self.d_obs = self._get_obs().shape
+        self.observation_space = spaces.Dict({
+            "observation":spaces.Box(-np.inf, np.inf, shape=self.d_obs, dtype=np.float32),
+            "achieved_goal": spaces.Box(-np.inf, np.inf, shape=6, dtype=np.float32),
+            "desired_goal": spaces.Box(-np.inf, np.inf, shape=6, dtype=np.float32),
+        })
+        self.dist_thresh = 0.03
 
 
     def _get_obs(self):
@@ -85,43 +149,65 @@ class DragRope(Environment):
         return obs
 
 
+    def compute_reward(self, achieved_goal, desired_goal, info):
+        _shape = achieved_goal.shape[:-1] + (len(self.key_point_indices), 3)
+        achieved_goal = achieved_goal.reshape(_shape)
+        desired_goal = desired_goal.reshape(_shape)
+
+        if self._rope_symmetry:
+            # the symmetry of the rope
+            dist1 = np.linalg.norm(achieved_goal - desired_goal, axis=-1).max(-1)
+            dist2 = np.linalg.norm(np.flip(achieved_goal, axis=-2) - desired_goal, axis=-1).max(-1)
+            dist = np.minimum(dist1, dist2)
+        else:
+            dist = np.linalg.norm(achieved_goal - desired_goal, axis=-1).max(-1)
+
+        if self.reward_type == "sparse":
+            return - (dist >= self.dist_thresh).astype(np.float32)
+        else:
+            return - dist
+
+
     def step(self, action=None):
-        """Execute action with specified primitive.
-            Args:
-              action: action to execute.
-            Returns:
-              (obs, reward, done, info) tuple containing MDP step data.
-            """
+
         if action is not None:
-            timeout = self.task.primitive(self.movej, self.movep, self.ee, **action)
+            timeout = self.task.primitive(action)
 
             # Exit early if action times out. We still return an observation
             # so that we don't break the Gym API contract.
             if timeout:
-                obs = {'color': (), 'depth': ()}
-                for config in self.agent_cams:
-                    color, depth, _ = self.render_camera(config)
-                    obs['color'] += (color,)
-                    obs['depth'] += (depth,)
-                return obs, 0.0, True, self.info
+                obs = self._get_obs()
+                achieved_goal = self._get_achieved_goal()
+                desired_goal = self.goal
+                reward = self.compute_reward(achieved_goal, desired_goal, None)
+                obs = {
+                    "observation": obs.copy(),
+                    "achieved_goal": achieved_goal.copy(),
+                    "desired_goal": desired_goal.copy()
+                }
+                return obs, reward, True, self.info
 
         # Step simulator asynchronously until objects settle.
         while not self.is_static:
             p.stepSimulation()
 
+        obs = self._get_obs()
+        achieved_goal = self._get_achieved_goal()
+        desired_goal = self.goal
+
         # Get task rewards.
-        reward, info = self.task.reward() if action is not None else (0, {})
-        done = self.task.done()
+        reward = self.compute_reward(achieved_goal, desired_goal, None)
+        done = (reward >= - self.dist_thresh)
 
-        # Add ground truth robot state into info.
-        info.update(self.info)
+        info = {
+            "is_success": reward >= - self.dist_thresh
+        }
 
-        # Get RGB-D camera image observations.
-        obs = {'color': (), 'depth': ()}
-        for config in self.agent_cams:
-            color, depth, _ = self.render_camera(config)
-            obs['color'] += (color,)
-            obs['depth'] += (depth,)
+        obs = {
+            "observation": obs.copy(),
+            "achieved_goal": achieved_goal.copy(),
+            "desired_goal": desired_goal.copy()
+        }
 
         return obs, reward, done, info
 

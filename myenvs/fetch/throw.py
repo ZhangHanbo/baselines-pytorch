@@ -18,10 +18,24 @@ class FetchThrowEnv(fetch_env.FetchEnv, gym_utils.EzPickle):
         }
         fetch_env.FetchEnv.__init__(
             self, MODEL_XML_PATH, has_object=True, block_gripper=False, n_substeps=20,
-            gripper_extra_height=0.0, target_in_the_air=False, target_offset=np.array([0.4, 0.0, 0.0]),
+            gripper_extra_height=0.0, target_in_the_air=False, target_offset=np.array([0.2, 0.0, 0.0]),
             obj_range=0.15, target_range=0.3, distance_threshold=0.05,
             initial_qpos=self.initial_qpos, reward_type=reward_type)
         gym_utils.EzPickle.__init__(self)
+
+
+    def _sample_goal(self):
+        if self.has_object:
+            goal = self.initial_gripper_xpos[:3].copy()
+            goal[0] += self.np_random.uniform(0, self.target_range, size=1)
+            goal[1] += self.np_random.uniform(-self.target_range, self.target_range, size=1)
+            goal += self.target_offset
+            goal[2] = self.height_offset
+            if self.target_in_the_air and self.np_random.uniform() < 0.5:
+                goal[2] += self.np_random.uniform(0, 0.3)
+        else:
+            goal = self.initial_gripper_xpos[:3] + self.np_random.uniform(-self.target_range, self.target_range, size=3)
+        return goal.copy()
 
 
     def _reset_sim(self):

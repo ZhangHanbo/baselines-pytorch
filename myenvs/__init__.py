@@ -5,23 +5,10 @@
 import copy
 from .registration import register, make, registry, spec
 
-register(
-    id='FetchThrow-v0',
-    entry_point='myenvs.fetch:FetchThrowEnv',
-    kwargs={},
-    max_episode_steps=50,
-)
 
 register(
     id='FetchThrowDice-v0',
     entry_point='myenvs.fetch:FetchThrowDiceEnv',
-    kwargs={},
-    max_episode_steps=50,
-)
-
-register(
-    id='FetchThrowRubberBall-v0',
-    entry_point='myenvs.fetch:FetchThrowRubberBallEnv',
     kwargs={},
     max_episode_steps=50,
 )
@@ -78,6 +65,27 @@ for reward_type in ['sparse', 'dense']:
         id='FetchSlideDiscrete{}-v0'.format(suffix),
         entry_point='myenvs.fetch:FetchSlideDiscrete',
         kwargs=kwargs,
+        max_episode_steps=50,
+    )
+
+    register(
+        id='FetchThrow-v0',
+        entry_point='myenvs.fetch:FetchThrowEnv',
+        kwargs={},
+        max_episode_steps=50,
+    )
+
+    register(
+        id='FetchThrowRubberBall-v0',
+        entry_point='myenvs.fetch:FetchThrowRubberBallEnv',
+        kwargs={},
+        max_episode_steps=50,
+    )
+
+    register(
+        id='DragRope-v0',
+        entry_point='myenvs.ravens:DragRopeEnv',
+        kwargs={},
         max_episode_steps=50,
     )
 

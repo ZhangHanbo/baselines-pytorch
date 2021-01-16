@@ -39,28 +39,31 @@ def img2video(imgs, video_dir, fps):
     videoWriter.release()
     print('Finish changing!')
 
-def main_my_own():
-    env = myenvs.make("FetchThrow-v0")
+def main_my_own(env_id="FetchThrow-v0"):
+    env = myenvs.make(env_id)
     rendered_imgs = []
-    for j in range(3):
+
+    save_dir = "./output/{}/".format(env_id)
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+
+    for j in range(20):
         _ = env.reset()
         rendered_imgs.append(env.render("rgb_array"))
-        cv2.imwrite("reset{:d}.png".format(j), rendered_imgs[-1])
+        cv2.imwrite(os.path.join(save_dir, "reset{:d}.png".format(j)), rendered_imgs[-1])
         for i in range(50):
             action = env.action_space.sample()
-            action[2] += 0.5
             obs, reward, done, info = env.step(action)
-            print(reward)
-            print(obs["achieved_goal"])
+            print(obs["achieved_goal"], obs["desired_goal"], reward)
             rendered_imgs.append(env.render("rgb_array"))
 
-    img2video(rendered_imgs, "./FetchThrowRubberBall.avi", 24)
+    img2video(rendered_imgs, os.path.join(save_dir, "demo.avi"), 24)
 
 def main_softgym():
     parser = argparse.ArgumentParser(description='Process some integers.')
     # ['PassWater', 'PourWater', 'PourWaterAmount', 'RopeFlatten', 'ClothFold', 'ClothFlatten', 'ClothDrop', 'ClothFoldCrumpled', 'ClothFoldDrop', 'RopeConfiguration']
     env_name = "RopeFlatten"
-    save_video_dir = './data/'
+    save_video_dir = './output/{}/'.format("SoftGym-" + env_name)
     env_kwargs = env_arg_dict[env_name]
     img_size = 256
     # Generate and save the initial states for running this environment for the first time
@@ -90,13 +93,13 @@ def main_softgym():
     if save_video_dir is not None:
         if not osp.exists(save_video_dir):
             os.makedirs(save_video_dir)
-        save_name = osp.join(".", env_name + '.avi')
+        save_name = osp.join(save_video_dir, 'demo.avi')
         img2video(frames, save_name, 24)
         print('Video generated and save to {}'.format(save_name))
 
-def main_my_softgym():
+def main_my_softgym(env_id="RopeConfiguration-v0"):
     # ['PassWater', 'PourWater', 'PourWaterAmount', 'RopeFlatten', 'ClothFold', 'ClothFlatten', 'ClothDrop', 'ClothFoldCrumpled', 'ClothFoldDrop', 'RopeConfiguration']
-    env = myenvs.make("RopeConfiguration-v0")
+    env = myenvs.make(env_id)
     img_size = 256
 
     frames = []
@@ -121,8 +124,12 @@ def main_my_softgym():
             info=None
         ))
 
-    save_name = osp.join(".", 'RopeConfiguration.avi')
+    save_dir = "./output/{}/".format(env_id)
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+    save_name = osp.join(save_dir, 'demo.avi')
     img2video(frames, save_name, 24)
     print('Video generated and save to {}'.format(save_name))
 
-main_my_own()
+
+main_my_own(env_id="DragRope-v0")

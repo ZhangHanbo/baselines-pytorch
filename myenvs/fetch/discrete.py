@@ -3,14 +3,8 @@ import random
 
 import numpy as np
 
-try:
-    import gym
-    from gym import spaces
-
-    if gym.__version__ != '0.10.5':
-        print("Gym version!=0.10.5. Update to latest gym or verify you have FetchX-v1s envs")
-except ImportError as e:
-    print('Could not load gym. Robotics environments will not work.', e)
+import gym
+from gym import spaces
 
 
 def generate_itoa_dict(bucket_values=[-0.33, 0, 0.33], valid_movement_direction=[1, 1, 1, 1]):

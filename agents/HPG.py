@@ -59,6 +59,8 @@ class HPG(PG):
         # generate subgoals from sampled data
         ags = self.achieved_goal.cpu().numpy()
         self.subgoals = np.unique(ags.round(decimals=2), axis=0)
+        # - np.inf means the invalid achieved goals
+        self.subgoals = self.subgoals[self.subgoals.mean(-1) > -np.inf]
         if self.sampled_goal_num is not None:
             if not self.using_hgf_goals:
                 # generate subgoals randomly
@@ -907,25 +909,24 @@ def run_hpg_train(env, agent, max_timesteps, logger, eval_interval = None, num_e
             else:
                 obs_dict_, rewards, dones, infos = env.step(actions)
 
-            # if timestep_counter > 350000:
-            # env.render()
+            next_obs_dict = copy.deepcopy(obs_dict_)
+
+            for e, info in enumerate(infos):
+                if dones[e]:
+                    epinfos.append(info.get('episode'))
+                    successes.append(info.get('is_success'))
+                    for k in next_obs_dict.keys():
+                        next_obs_dict[k][e] = info.get('terminal_observation')[k]
+                    ep_num += 1
 
             mb_obs.append(observations)
             mb_actions.append(actions)
             mb_logpacs.append(logp)
             mb_dones.append(dones.astype(np.uint8))
             mb_rewards.append(rewards)
-            mb_obs_.append(obs_dict_['observation'].copy())
-            mb_dg.append(obs_dict_['desired_goal'].copy())
-            mb_ag.append(obs_dict_['achieved_goal'].copy())
-
-            for e, info in enumerate(infos):
-                if dones[e]:
-                    epinfos.append(info.get('episode'))
-                    successes.append(info.get('is_success'))
-                    for k in obs_dict_.keys():
-                        obs_dict_[k][e] = info.get('new_obs')[k]
-                    ep_num += 1
+            mb_obs_.append(next_obs_dict['observation'].copy())
+            mb_dg.append(next_obs_dict['desired_goal'].copy())
+            mb_ag.append(next_obs_dict['achieved_goal'].copy())
 
             obs_dict = obs_dict_
 

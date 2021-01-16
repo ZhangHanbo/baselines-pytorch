@@ -15,7 +15,6 @@ HPGconfig = {
     # for comparison with HPG
     'lr': 5e-4,
     # NEED TO FOCUS ON THESE PARAMETERS
-    'using_hpg': False,
     'steps_per_iter': 3200,
     'sampled_goal_num': 100,
     'value_type': 'FC',

@@ -199,7 +199,9 @@ def run_htrpo_train(env, agent, max_timesteps, logger, eval_interval = None, num
 
     if render:
         img = env.render("rgb_array")
-        video_writer = VideoWriter(out_dir="./train.avi", resolution=img.shape[:2][::-1])
+        out_dir = "./output/{}/".format(env.env_id)
+        video_writer = VideoWriter(out_dir=os.path.join(out_dir, "{}_train.avi".format(env.alg)),
+                                   resolution=img.shape[:2][::-1])
 
     if eval_interval:
         eval_ret, eval_success = agent.eval_brain(env, render=render, eval_num=num_evals)

@@ -102,7 +102,9 @@ class Agent:
 
         if render:
             obs_img = env.render("rgb_array")
-            video_viewer = VideoWriter(out_dir="./eval.avi", resolution=obs_img.shape[:2][::-1], min_len=0)
+            out_dir = "./output/{}/".format(env.env_id)
+            video_viewer = VideoWriter(out_dir=os.path.join(out_dir, "{}_eval.avi".format(env.alg)),
+                                       resolution=obs_img.shape[:2][::-1], min_len=0)
 
         eval_counter = 0
         while (len(eprew_list) < eval_num):

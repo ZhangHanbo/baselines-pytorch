@@ -1,14 +1,18 @@
 import cv2
 import numpy as np
 import pdb
+import os
 
 class VideoWriter(object):
 
-    def __init__(self, out_dir=".", fps=24, resolution=(800, 600), min_len=10):
+    def __init__(self, out_dir="./output/", fps=24, resolution=(800, 600), min_len=10):
+        out_dir, out_name = "/".join(out_dir.split("/")[:-1]), out_dir.split("/")[-1]
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir)
         self.imgs = []
         fourcc = cv2.VideoWriter_fourcc('M', 'J', 'P', 'G')  # opencv3.0
         self.fps = fps
-        self.videowriter = cv2.VideoWriter(out_dir, fourcc, fps, resolution)
+        self.videowriter = cv2.VideoWriter(os.path.join(out_dir, out_name), fourcc, fps, resolution)
         self.min_video_len = min_len
 
     def reset(self):
