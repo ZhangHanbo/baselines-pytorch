@@ -14,8 +14,8 @@ from softgym.registered_env import env_arg_dict, SOFTGYM_ENVS
 from softgym.utils.normalized_env import normalize
 from softgym.utils.visualization import save_numpy_as_gif
 
-sys.path.append("./ravensenvs/")
-
+from ravens import tasks
+from ravens.environments.environment import Environment
 
 _game_envs = defaultdict(set)
 for env in gym.envs.registry.all():
@@ -47,15 +47,16 @@ def main_my_own(env_id="FetchThrow-v0"):
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
-    for j in range(20):
+    for j in range(1):
         _ = env.reset()
-        rendered_imgs.append(env.render("rgb_array"))
-        cv2.imwrite(os.path.join(save_dir, "reset{:d}.png".format(j)), rendered_imgs[-1])
+        rendered_imgs += env.frames
+        # cv2.imwrite(os.path.join(save_dir, "reset{:d}.png".format(j)), rendered_imgs[-1])
         for i in range(50):
             action = env.action_space.sample()
             obs, reward, done, info = env.step(action)
             print(obs["achieved_goal"], obs["desired_goal"], reward)
-            rendered_imgs.append(env.render("rgb_array"))
+            # rendered_imgs.append(env.render("rgb_array"))
+            rendered_imgs += env.frames
 
     img2video(rendered_imgs, os.path.join(save_dir, "demo.avi"), 24)
 
@@ -131,5 +132,47 @@ def main_my_softgym(env_id="RopeConfiguration-v0"):
     img2video(frames, save_name, 24)
     print('Video generated and save to {}'.format(save_name))
 
+def main_ravens(env_id="manipulating-rope"):
+    save_video_dir = './output/{}/'.format("Ravens-" + env_id)
+
+    # Initialize environment and task.
+    env = Environment(
+        "./ravensenvs/ravens/environments/assets",
+        disp=False,
+        shared_memory=False,
+        hz=480)
+    task = tasks.names[env_id]()
+    task.mode = 'test'
+
+    seed = 1
+    # Run testing and save total rewards with last transition info.
+    results = []
+    frames = []
+    for i in range(3):
+        total_reward = 0
+        np.random.seed(seed)
+        env.seed(seed)
+        env.set_task(task)
+        obs = env.reset()
+        frames.append(env.render(mode="rgb_array"))
+        info = None
+        reward = 0
+        for _ in range(task.max_steps):
+            act = env.action_space.sample()
+            obs, reward, done, info = env.step(act)
+            frames.append(env.render(mode="rgb_array"))
+            total_reward += reward
+            print(f'Total Reward: {total_reward} Done: {done}')
+            if done:
+                break
+        results.append((total_reward, info))
+
+    if save_video_dir is not None:
+        if not osp.exists(save_video_dir):
+            os.makedirs(save_video_dir)
+        save_name = osp.join(save_video_dir, 'demo.avi')
+        img2video(frames, save_name, 24)
+        print('Video generated and save to {}'.format(save_name))
 
 main_my_own(env_id="DragRope-v0")
+# main_ravens(env_id="manipulating-rope")

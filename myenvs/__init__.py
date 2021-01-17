@@ -69,23 +69,23 @@ for reward_type in ['sparse', 'dense']:
     )
 
     register(
-        id='FetchThrow-v0',
+        id='FetchThrow{}-v0'.format(suffix),
         entry_point='myenvs.fetch:FetchThrowEnv',
-        kwargs={},
+        kwargs=kwargs,
         max_episode_steps=50,
     )
 
     register(
-        id='FetchThrowRubberBall-v0',
+        id='FetchThrowRubberBall{}-v0'.format(suffix),
         entry_point='myenvs.fetch:FetchThrowRubberBallEnv',
-        kwargs={},
+        kwargs=kwargs,
         max_episode_steps=50,
     )
 
     register(
-        id='DragRope-v0',
+        id='DragRope{}-v0'.format(suffix),
         entry_point='myenvs.ravens:DragRopeEnv',
-        kwargs={},
+        kwargs=kwargs,
         max_episode_steps=50,
     )
 

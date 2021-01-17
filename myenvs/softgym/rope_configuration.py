@@ -25,8 +25,8 @@ class RopeConfigurationEnv(RopeNewEnv):
         self.prev_distance_diff = None
         self.get_cached_configs_and_states(cached_states_path, self.num_variations)
 
-        self._num_key_points = 6
-        self.dist_thresh = 0.03
+        self._num_key_points = 8
+        self.dist_thresh = 0.05
         self.reward_type = reward_type
 
         # disable the patch_deprecated_methods during registration
