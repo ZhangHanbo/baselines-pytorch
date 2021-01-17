@@ -84,12 +84,13 @@ class DragRopeEnv(Environment):
         task = ManipulatingRope()
         self.set_task(task)
 
-        self.speed = 0.002
+        self.speed = 0.01
         self.dist_thresh = 0.03
         self.reward_type = reward_type
+        self.key_point_num = 8
         self._rope_symmetry = False
         self._step_wait_until_settled = False
-        self._verbal_frames = True
+        self._verbal_frames = False
         self._verbal_frame_interval = 10
         self.frames = []
         self.height = None
@@ -143,18 +144,29 @@ class DragRopeEnv(Environment):
         return timeout
 
 
+    def _get_keypoint_ids(self):
+        num = len(self.obj_ids["rigid"])
+        indices = [0]
+        n_mid_points = self.key_point_num - 2
+        interval = (num - 2) // n_mid_points
+        for i in range(1, 1 + n_mid_points):
+            indices.append(i * interval)
+        indices.append(num - 1)
+        return [self.obj_ids["rigid"][i] for i in indices]
+
+
     def _get_obs(self):
         obj_states = []
-        for obj_ids in self.obj_ids.values():
-            for obj_id in obj_ids:
-                obj_states.append(np.concatenate(p.getBasePositionAndOrientation(obj_id)))
+        for obj_id in self.key_point_indices:
+            obj_states.append(p.getBasePositionAndOrientation(obj_id)[0])
+            obj_states.append(p.getBaseVelocity(obj_id)[0])
         obj_states = np.concatenate(obj_states)
         return obj_states
 
 
     def _get_achieved_goal(self):
         rope_particle_ids = (self.task.goals[0][0][0][0], self.task.goals[0][0][-1][0])
-        end_particle_pos = [p.getBasePositionAndOrientation(i)[0] for i in rope_particle_ids]
+        end_particle_pos = [p.getBasePositionAndOrientation(i)[0][:2] for i in rope_particle_ids]
         return np.concatenate(end_particle_pos)
 
 
@@ -201,10 +213,12 @@ class DragRopeEnv(Environment):
             # Reset task.
             self.task.reset(self)
             self.goal = self.task.goals[-1][2]
-            self.goal = np.concatenate((self.goal[0][0], self.goal[-1][0]))
+            self.goal = np.concatenate((self.goal[0][0][:2], self.goal[-1][0][:2]))
 
             # Re-enable rendering.
             p.configureDebugVisualizer(p.COV_ENABLE_RENDERING, 1)
+
+            self.key_point_indices = self._get_keypoint_ids()
 
             # grasp one end of the rope
             end_points = self._get_achieved_goal()[:3]
@@ -226,7 +240,7 @@ class DragRopeEnv(Environment):
 
 
     def compute_reward(self, achieved_goal, desired_goal, info):
-        _shape = achieved_goal.shape[:-1] + (-1, 3)
+        _shape = achieved_goal.shape[:-1] + (-1, 2)
         achieved_goal = achieved_goal.reshape(_shape)
         desired_goal = desired_goal.reshape(_shape)
 

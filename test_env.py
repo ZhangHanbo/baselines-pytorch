@@ -49,14 +49,13 @@ def main_my_own(env_id="FetchThrow-v0"):
 
     for j in range(1):
         _ = env.reset()
-        rendered_imgs += env.frames
-        # cv2.imwrite(os.path.join(save_dir, "reset{:d}.png".format(j)), rendered_imgs[-1])
+        rendered_imgs.append(env.render("rgb_array"))
+        cv2.imwrite(os.path.join(save_dir, "reset{:d}.png".format(j)), rendered_imgs[-1])
         for i in range(50):
             action = env.action_space.sample()
             obs, reward, done, info = env.step(action)
             print(obs["achieved_goal"], obs["desired_goal"], reward)
-            # rendered_imgs.append(env.render("rgb_array"))
-            rendered_imgs += env.frames
+            rendered_imgs.append(env.render("rgb_array"))
 
     img2video(rendered_imgs, os.path.join(save_dir, "demo.avi"), 24)
 
