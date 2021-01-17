@@ -49,13 +49,19 @@ def main_my_own(env_id="FetchThrow-v0"):
 
     for j in range(1):
         _ = env.reset()
-        rendered_imgs.append(env.render("rgb_array"))
+        if hasattr(env, "frames") and len(env.frames) > 0:
+            rendered_imgs += env.frames
+        else:
+            rendered_imgs.append(env.render("rgb_array"))
         cv2.imwrite(os.path.join(save_dir, "reset{:d}.png".format(j)), rendered_imgs[-1])
         for i in range(50):
             action = env.action_space.sample()
             obs, reward, done, info = env.step(action)
             print(obs["achieved_goal"], obs["desired_goal"], reward)
-            rendered_imgs.append(env.render("rgb_array"))
+            if hasattr(env, "frames") and len(env.frames) > 0:
+                rendered_imgs += env.frames
+            else:
+                rendered_imgs.append(env.render("rgb_array"))
 
     img2video(rendered_imgs, os.path.join(save_dir, "demo.avi"), 24)
 
@@ -173,5 +179,5 @@ def main_ravens(env_id="manipulating-rope"):
         img2video(frames, save_name, 24)
         print('Video generated and save to {}'.format(save_name))
 
-main_my_own(env_id="SweepPile-v0")
+main_my_own(env_id="SweepPileDense-v0")
 # main_ravens(env_id="manipulating-rope")

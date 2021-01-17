@@ -32,9 +32,9 @@ class SweepingPiles(Task):
         # Add pile of small blocks.
         obj_pts = {}
         obj_ids = []
-        for _ in range(50):
-            rx = self.bounds[0, 0] + 0.15 + np.random.rand() * 0.2
-            ry = self.bounds[1, 0] + 0.4 + np.random.rand() * 0.2
+        for _ in range(20):
+            rx = self.bounds[0, 0] + 0.15 + np.random.rand() * 0.12
+            ry = self.bounds[1, 0] + 0.4 + np.random.rand() * 0.12
             xyz = (rx, ry, 0.01)
             theta = np.random.rand() * 2 * np.pi
             xyzw = utils.eulerXYZ_to_quatXYZW((0, 0, theta))
@@ -58,15 +58,17 @@ class SweepPileEnv(Environment):
         task = SweepingPiles()
         self.set_task(task)
 
-        self.dist_thresh = 0.03
         self.reward_type = reward_type
         self._step_wait_until_settled = False
-        self._verbal_frames = False
-        self._verbal_frame_interval = 10
+        self._verbal_frames = True
+        self._verbal_frame_interval = 50
         self.frames = []
 
         obs = self.reset()
-        self.action_space = gym.spaces.Box(-1., 1., shape=(2,), dtype=np.float32)
+        self.action_space = gym.spaces.Box(
+            np.array([self.task.bounds[0][0] + 0.1, self.task.bounds[1][0] + 0.1, -np.pi]),
+            np.array([self.task.bounds[0][1] - 0.1, self.task.bounds[1][1] - 0.1, np.pi]),
+            shape=(3,), dtype=np.float32)
         self.observation_space = spaces.Dict({
             "observation":spaces.Box(-np.inf, np.inf, shape=obs["observation"].shape, dtype=np.float32),
             "achieved_goal": spaces.Box(-np.inf, np.inf, shape=obs["achieved_goal"].shape, dtype=np.float32),
@@ -240,8 +242,8 @@ class SweepPileEnv(Environment):
         self.frames = []
 
         start_pos = action[:2]
-        delta_pos = action[2:]
-        targ_pos = start_pos + delta_pos
+        ang = action[2]
+        targ_pos = start_pos + 0.1 * np.asarray((np.cos(ang), np.sin(ang)))
 
         if action is not None:
             timeout = self.push_from_to(start_pos, targ_pos)
@@ -282,7 +284,7 @@ class SweepPileEnv(Environment):
         done = False
 
         info = {
-            "is_success": reward >= - self.dist_thresh
+            "is_success": reward == 0.
         }
 
         obs = {
