@@ -90,6 +90,13 @@ for reward_type in ['sparse', 'dense']:
     )
 
     register(
+        id='SweepPile{}-v0'.format(suffix),
+        entry_point='myenvs.ravens:SweepPileEnv',
+        kwargs=kwargs,
+        max_episode_steps=50,
+    )
+
+    register(
         id='MsPacman{}-v0'.format(suffix),
         entry_point='myenvs.atari.mspacman:MsPacman',
         kwargs=kwargs,

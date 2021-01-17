@@ -85,7 +85,7 @@ class DragRopeEnv(Environment):
         self.set_task(task)
 
         self.speed = 0.01
-        self.dist_thresh = 0.03
+        self.dist_thresh = 0.07
         self.reward_type = reward_type
         self.key_point_num = 8
         self._rope_symmetry = False
