@@ -260,7 +260,7 @@ class DragRopeEnv(Environment):
 
     def step(self, action=None):
         self.frames = []
-
+        action = np.clip(action, self.action_space.low, self.action_space.high)
         delta_pos = np.zeros(3)
         delta_pos[:2] = action
         targ_pos = [p.getLinkState(self.ur5, self.ee_tip)[0], p.getLinkState(self.ur5, self.ee_tip)[1]]

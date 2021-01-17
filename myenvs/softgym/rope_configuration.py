@@ -105,6 +105,7 @@ class RopeConfigurationEnv(RopeNewEnv):
         """ If record_continuous_video is set to True, will record an image for each sub-step"""
         frames = []
         # process action
+        action = np.clip(action, self.action_space.low, self.action_space.high)
         action = action.reshape(-1, 4)
         action[:, 1] = - 10.
         action = action.reshape(-1)

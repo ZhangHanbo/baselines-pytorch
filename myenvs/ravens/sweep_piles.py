@@ -8,7 +8,7 @@ from ravens.environments.environment import *
 from ravens.tasks.task import Task
 from ravens.utils import pybullet_utils, utils
 from ravens.tasks.grippers import Spatula
-
+import pdb
 
 class SweepingPiles(Task):
     def __init__(self):
@@ -60,14 +60,14 @@ class SweepPileEnv(Environment):
 
         self.reward_type = reward_type
         self._step_wait_until_settled = False
-        self._verbal_frames = True
+        self._verbal_frames = False
         self._verbal_frame_interval = 50
         self.frames = []
 
         obs = self.reset()
         self.action_space = gym.spaces.Box(
-            np.array([self.task.bounds[0][0] + 0.1, self.task.bounds[1][0] + 0.1, -np.pi]),
-            np.array([self.task.bounds[0][1] - 0.1, self.task.bounds[1][1] - 0.1, np.pi]),
+            np.array([self.task.bounds[0][0] + 0.1, self.task.bounds[1][0] + 0.1, -3.14159], dtype=np.float32),
+            np.array([self.task.bounds[0][1] - 0.1, self.task.bounds[1][1] - 0.1, 3.14159], dtype=np.float32),
             shape=(3,), dtype=np.float32)
         self.observation_space = spaces.Dict({
             "observation":spaces.Box(-np.inf, np.inf, shape=obs["observation"].shape, dtype=np.float32),
@@ -101,8 +101,8 @@ class SweepPileEnv(Environment):
         theta = np.arctan2(vec[1], vec[0])
         rot = utils.eulerXYZ_to_quatXYZW((0, 0, theta))
 
-        over0 = (pos0[0], pos0[1], 0.31)
-        over1 = (pos1[0], pos1[1], 0.31)
+        over0 = (pos0[0], pos0[1], 0.12)
+        over1 = (pos1[0], pos1[1], 0.12)
 
         # Execute push.
         timeout = self.movep((over0, rot))
@@ -235,12 +235,12 @@ class SweepPileEnv(Environment):
             max_desired = desired_goal[..., 2:]
             comp_res = \
                 np.concatenate((min_achieved > min_desired, max_achieved < max_desired), axis=-1).sum(-1)
-            return - (comp_res.sum(-1) < 4).astype(np.float32)
+            return - (comp_res < 4).astype(np.float32)
 
 
     def step(self, action=None):
         self.frames = []
-
+        action = np.clip(action, self.action_space.low, self.action_space.high)
         start_pos = action[:2]
         ang = action[2]
         targ_pos = start_pos + 0.1 * np.asarray((np.cos(ang), np.sin(ang)))
@@ -250,7 +250,7 @@ class SweepPileEnv(Environment):
 
             # Exit early if action times out. We still return an observation
             # so that we don't break the Gym API contract.
-            if timeout or timeout is None:
+            if timeout:
                 obs = self._get_obs()
                 achieved_goal = self._get_achieved_goal(obs)
                 desired_goal = self.goal
