@@ -197,7 +197,7 @@ class SweepPileEnv(Environment):
         return obs
 
 
-    def _get_generalized_iou(self, box1, box2):
+    def _get_desired_iou_ratio(self, box1, box2):
         enclosing_box = np.concatenate(
             (np.minimum(box1[..., :2], box2[..., :2]),
              np.maximum(box1[..., 2:], box2[..., 2:]))
@@ -218,8 +218,8 @@ class SweepPileEnv(Environment):
         box1_area = (box1[..., 2] - box1[..., 0]) * (box1[..., 3] - box1[..., 1])
         box2_area = (box2[..., 2] - box2[..., 0]) * (box2[..., 3] - box2[..., 1])
 
-        giou = 1. - (enclosing_area - (box1_area + box2_area - intersec_area)) / enclosing_area
-        return giou
+        iou_ratio = box2_area / enclosing_area
+        return iou_ratio
 
 
     def compute_reward(self, achieved_goal, desired_goal, info):
@@ -227,7 +227,7 @@ class SweepPileEnv(Environment):
 
         if self.reward_type == "dense":
             # make sure that the reward range is [-1, 0]
-            return self._get_generalized_iou(achieved_goal, desired_goal) - 1.
+            return self._get_desired_iou_ratio(achieved_goal, desired_goal) - 1.
         else:
             min_achieved = achieved_goal[..., :2]
             max_achieved = achieved_goal[..., 2:]
