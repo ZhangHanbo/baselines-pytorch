@@ -1,22 +1,25 @@
-import torch
-from torch import nn
-from torch.nn.utils.convert_parameters import vector_to_parameters, parameters_to_vector
-import copy
-from .TRPO import TRPO, TRPO_Gaussian, TRPO_Softmax
-from .HPG import HPG, HPG_Gaussian, HPG_Softmax
-from .config import HTRPO_CONFIG
 import abc
-import numpy as np
-from utils.mathutils import explained_variance
-from collections import deque
-import copy
-from utils.vec_envs import space_dim
 import time
-from utils.rms import RunningMeanStd
 import pickle
 import os
 import random
+import copy
+import numpy as np
+from collections import deque
+
+import torch
+from torch import nn
+from torch.nn.utils.convert_parameters import vector_to_parameters, parameters_to_vector
+
+from .TRPO import TRPO, TRPO_Gaussian, TRPO_Softmax
+from .HPG import HPG, HPG_Gaussian, HPG_Softmax
+from .config import HTRPO_CONFIG
+
+from utils.vec_envs import space_dim
+from utils.rms import RunningMeanStd
+from utils.mathutils import explained_variance
 from utils.viewer import VideoWriter
+from utils.density_curiosity import KernalDensityEstimator, CuriosityAlphaMixture
 
 class HTRPO(HPG, TRPO):
     __metaclass__ = abc.ABCMeta
@@ -29,6 +32,92 @@ class HTRPO(HPG, TRPO):
         self.using_htrpo = self.sampled_goal_num is None or self.sampled_goal_num > 0
         self.using_trpo = self.sampled_goal_num == 0 and self.using_original_data
         assert (self.using_htrpo or self.using_trpo)
+        self.using_hgf_goals = config['using_hgf_goals']
+        self.using_curiosity = config['using_curiosity']
+        if self.using_curiosity:
+            self._init_density_estimators(config["logger"])
+
+    def _init_density_estimators(self, logger):
+        self.ag_kde = KernalDensityEstimator(name="achieved_goal", logger=logger)
+        self.dg_kde = KernalDensityEstimator(name="achieved_goal", logger=logger)
+        self.curiosity_alpha = CuriosityAlphaMixture(ag_kde=self.ag_kde, dg_kde=self.dg_kde, logger=logger)
+
+    def generate_subgoals(self):
+        # generate subgoals from sampled data
+        ags = self.achieved_goal.cpu().numpy()
+        self.subgoals = np.unique(ags.round(decimals=2), axis=0)
+        # - np.inf means the invalid achieved goals
+        self.subgoals = self.subgoals[self.subgoals.mean(-1) > -np.inf]
+        if self.sampled_goal_num is not None:
+            if not self.using_hgf_goals:
+                self.generate_subgoals_random()
+            else:
+                if not self.using_curiosity:
+                    self.generate_subgoals_hgf_heuristic()
+                else:
+                    self.generate_subgoals_hgf_curiosity()
+
+    def generate_subgoals_hgf_curiosity(self):
+        pass
+
+    def generate_subgoals_hgf_heuristic(self):
+        dg = np.unique(self.desired_goal.cpu().numpy().round(decimals=2), axis=0)
+        dg_max = np.max(dg, axis=0)
+        dg_min = np.min(dg, axis=0)
+        g_ind = (dg_min != dg_max)
+        subgoals = self.subgoals[np.sum((self.subgoals[:, g_ind] > dg_max[g_ind]) |
+                                        (self.subgoals[:, g_ind] < dg_min[g_ind]), axis = -1) == 0]
+        if subgoals.shape[0] == 0:
+            dist_to_dg_center = np.linalg.norm(self.subgoals - np.mean(dg, axis = 0), axis=1)
+            ind_subgoals = np.argsort(dist_to_dg_center)
+            self.subgoals = np.unique(np.concatenate([
+                self.subgoals[ind_subgoals[:self.sampled_goal_num]], subgoals
+            ], axis=0), axis=0)
+        else:
+            self.subgoals = subgoals
+
+        size = min(self.sampled_goal_num, self.subgoals.shape[0])
+
+        # initialization
+        init_ind = np.random.randint(self.subgoals.shape[0])
+        selected_subgoals = self.subgoals[init_ind:init_ind + 1]
+        self.subgoals = np.delete(self.subgoals, init_ind, axis=0)
+
+        # (Ng - 1) x 1
+        dists = np.linalg.norm(
+            np.expand_dims(selected_subgoals, axis=0) - np.expand_dims(self.subgoals, axis=1),
+            axis=-1)
+
+        for g in range(size - 1):
+            selected_ind = np.argmax(np.min(dists, axis=1))
+            selected_subgoal = self.subgoals[selected_ind:selected_ind + 1]
+            selected_subgoals = np.concatenate((selected_subgoals, selected_subgoal), axis=0)
+
+            self.subgoals = np.delete(self.subgoals, selected_ind, axis=0)
+            dists = np.delete(dists, selected_ind, axis=0)
+
+            new_dist = np.linalg.norm(
+                np.expand_dims(selected_subgoal, axis=0) - np.expand_dims(self.subgoals, axis=1),
+                axis=-1)
+
+            dists = np.concatenate((dists, new_dist), axis=1)
+
+        self.subgoals = selected_subgoals
+
+    def generate_subgoals_random(self):
+        # generate subgoals randomly
+        ind = list(range(self.subgoals.shape[0]))
+        random.shuffle(ind)
+        size = min(self.sampled_goal_num, self.subgoals.shape[0])
+        ind = ind[:size]
+        self.subgoals = self.subgoals[ind]
+
+    def update_curiosity(self):
+        self.ag_kde.extend(self.achieved_goals.cpu().numpy())
+        self.ag_kde.fit()
+        self.dg_kde.extend(self.desired_goals.cpu().numpy())
+        self.dg_kde.fit()
+        self.curiosity_alpha.update()
 
     def learn(self):
         if self.using_htrpo:
@@ -80,6 +169,8 @@ class HTRPO(HPG, TRPO):
         b_t = time.time()
         self.sample_batch()
         self.split_episode()
+        if self.using_curiosity:
+            self.update_curiosity()
         # No valid episode is collected
         if self.n_valid_ep == 0:
             return

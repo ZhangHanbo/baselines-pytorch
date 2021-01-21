@@ -60,8 +60,8 @@ class SweepPileEnv(Environment):
 
         self.reward_type = reward_type
         self._step_wait_until_settled = False
-        self._verbal_frames = False
-        self._verbal_frame_interval = 50
+        self._verbose_frames = False
+        self._verbose_frame_interval = 25
         self.frames = []
 
         obs = self.reset()
@@ -264,12 +264,12 @@ class SweepPileEnv(Environment):
 
         # Step simulator asynchronously until objects settle.
         if self._step_wait_until_settled:
-            if self._verbal_frames:
+            if self._verbose_frames:
                 sim_step_acc = 0
                 while not self.is_static:
                     p.stepSimulation()
                     sim_step_acc += 1
-                    if sim_step_acc % self._verbal_frame_interval == 0:
+                    if sim_step_acc % self._verbose_frame_interval == 0:
                         self.frames.append(self.render("rgb_array"))
             else:
                 while not self.is_static:
@@ -325,7 +325,7 @@ class SweepPileEnv(Environment):
             p.stepSimulation()
             t_acc += time.time() - t0
             sim_step_acc += 1
-            if self._verbal_frames and sim_step_acc % self._verbal_frame_interval == 0:
+            if self._verbose_frames and sim_step_acc % self._verbose_frame_interval == 0:
                 self.frames.append(self.render("rgb_array"))
         print(f'Warning: movej exceeded {timeout} second timeout. Skipping.')
         return True

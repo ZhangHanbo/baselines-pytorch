@@ -128,11 +128,12 @@ HPG_CONFIG = {
     'goal_space': None,
     'per_decision': True,
     'weighted_is': True,
-    'using_hgf_goals' : True,
     'using_original_data': False,
     'using_her_reward': False,
 }
 
 HTRPO_CONFIG = {
     'KL_esti_method_for_TRPO' : 'kl2',
+    'using_curiosity': False,
+    'using_hgf_goals' : True,
 }

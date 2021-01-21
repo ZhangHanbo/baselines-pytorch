@@ -13,6 +13,7 @@ import pickle
 import os
 import random
 
+
 import pdb
 
 class HPG(PG):
@@ -25,7 +26,6 @@ class HPG(PG):
         self.d_goal = config["n_states"]["n_g"]
         self.per_decision = config['per_decision']
         self.weight_is = config['weighted_is']
-        self.using_hgf_goals = config['using_hgf_goals']
         self.reward_fn = config['reward_fn']
         self.max_steps = config['max_episode_steps']
         self.obs_space = config['other_data']
@@ -62,56 +62,12 @@ class HPG(PG):
         # - np.inf means the invalid achieved goals
         self.subgoals = self.subgoals[self.subgoals.mean(-1) > -np.inf]
         if self.sampled_goal_num is not None:
-            if not self.using_hgf_goals:
-                # generate subgoals randomly
-                ind = list(range(self.subgoals.shape[0]))
-                random.shuffle(ind)
-                size = min(self.sampled_goal_num, self.subgoals.shape[0])
-                ind = ind[:size]
-                self.subgoals = self.subgoals[ind]
-            else:
-                # dg = np.unique(self.desired_goal.cpu().numpy().round(decimals=2), axis=0)
-                # dg_max = np.max(dg, axis=0)
-                # dg_min = np.min(dg, axis=0)
-                # g_ind = (dg_min != dg_max)
-                # subgoals = self.subgoals[np.sum((self.subgoals[:, g_ind] > dg_max[g_ind]) |
-                #                                 (self.subgoals[:, g_ind] < dg_min[g_ind]), axis = -1) == 0]
-                # if subgoals.shape[0] == 0:
-                #     dist_to_dg_center = np.linalg.norm(self.subgoals - np.mean(dg, axis = 0), axis=1)
-                #     ind_subgoals = np.argsort(dist_to_dg_center)
-                #     self.subgoals = np.unique(np.concatenate([
-                #         self.subgoals[ind_subgoals[:self.sampled_goal_num]], subgoals
-                #     ], axis=0), axis=0)
-                # else:
-                #     self.subgoals = subgoals
-
-                size = min(self.sampled_goal_num, self.subgoals.shape[0])
-
-                # initialization
-                init_ind = np.random.randint(self.subgoals.shape[0])
-                selected_subgoals = self.subgoals[init_ind:init_ind + 1]
-                self.subgoals = np.delete(self.subgoals, init_ind, axis=0)
-
-                # (Ng - 1) x 1
-                dists = np.linalg.norm(
-                    np.expand_dims(selected_subgoals, axis=0) - np.expand_dims(self.subgoals, axis=1),
-                    axis=-1)
-
-                for g in range(size-1):
-                    selected_ind = np.argmax(np.min(dists, axis=1))
-                    selected_subgoal = self.subgoals[selected_ind:selected_ind+1]
-                    selected_subgoals = np.concatenate((selected_subgoals, selected_subgoal), axis = 0)
-
-                    self.subgoals = np.delete(self.subgoals, selected_ind, axis = 0)
-                    dists = np.delete(dists, selected_ind, axis = 0)
-
-                    new_dist = np.linalg.norm(
-                        np.expand_dims(selected_subgoal, axis=0) - np.expand_dims(self.subgoals, axis=1),
-                        axis=-1)
-
-                    dists = np.concatenate((dists, new_dist), axis=1)
-
-                self.subgoals = selected_subgoals
+            # generate subgoals randomly
+            ind = list(range(self.subgoals.shape[0]))
+            random.shuffle(ind)
+            size = min(self.sampled_goal_num, self.subgoals.shape[0])
+            ind = ind[:size]
+            self.subgoals = self.subgoals[ind]
 
     @abc.abstractmethod
     def generate_fake_data(self):
@@ -167,6 +123,7 @@ class HPG(PG):
     def learn(self):
         self.sample_batch()
         self.split_episode()
+
         # No valid episode is collected
         if self.n_valid_ep == 0:
             return

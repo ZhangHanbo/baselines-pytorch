@@ -84,19 +84,19 @@ class DragRopeEnv(Environment):
         task = ManipulatingRope()
         self.set_task(task)
 
-        self.speed = 0.01
-        self.dist_thresh = 0.07
+        self.speed = 0.005
+        self.dist_thresh = 0.05
         self.reward_type = reward_type
         self.key_point_num = 8
         self._rope_symmetry = False
         self._step_wait_until_settled = False
-        self._verbal_frames = False
-        self._verbal_frame_interval = 10
+        self._verbose_frames = False
+        self._verbose_frame_interval = 12
         self.frames = []
         self.height = None
 
         obs = self.reset()
-        self.action_space = gym.spaces.Box(-0.05, 0.05, shape=(2,), dtype=np.float32)
+        self.action_space = gym.spaces.Box(-0.03, 0.03, shape=(2,), dtype=np.float32)
         self.observation_space = spaces.Dict({
             "observation":spaces.Box(-np.inf, np.inf, shape=obs["observation"].shape, dtype=np.float32),
             "achieved_goal": spaces.Box(-np.inf, np.inf, shape=obs["achieved_goal"].shape, dtype=np.float32),
@@ -161,7 +161,10 @@ class DragRopeEnv(Environment):
             obj_states.append(p.getBasePositionAndOrientation(obj_id)[0])
             obj_states.append(p.getBaseVelocity(obj_id)[0])
         obj_states = np.concatenate(obj_states)
-        return obj_states
+        robot_state = [p.getJointState(self.ur5, i) for i in self.joints]
+        robot_state = np.concatenate([(s[0], s[1]) for s in robot_state])
+        ee_state = p.getLinkState(self.ur5, self.ee_tip)
+        return np.concatenate([obj_states, robot_state, ee_state[0]])
 
 
     def _get_achieved_goal(self):
@@ -287,12 +290,12 @@ class DragRopeEnv(Environment):
 
         # Step simulator asynchronously until objects settle.
         if self._step_wait_until_settled:
-            if self._verbal_frames:
+            if self._verbose_frames:
                 sim_step_acc = 0
                 while not self.is_static:
                     p.stepSimulation()
                     sim_step_acc += 1
-                    if sim_step_acc % self._verbal_frame_interval == 0:
+                    if sim_step_acc % self._verbose_frame_interval == 0:
                         self.frames.append(self.render("rgb_array"))
             else:
                 while not self.is_static:
@@ -348,7 +351,7 @@ class DragRopeEnv(Environment):
             p.stepSimulation()
             t_acc += time.time() - t0
             sim_step_acc += 1
-            if self._verbal_frames and sim_step_acc % self._verbal_frame_interval == 0:
+            if self._verbose_frames and sim_step_acc % self._verbose_frame_interval == 0:
                 self.frames.append(self.render("rgb_array"))
         print(f'Warning: movej exceeded {timeout} second timeout. Skipping.')
         return True

@@ -83,6 +83,13 @@ for reward_type in ['sparse', 'dense']:
     )
 
     register(
+        id='FetchPickAndThrow{}-v0'.format(suffix),
+        entry_point='myenvs.fetch:FetchPickAndThrowEnv',
+        kwargs=kwargs,
+        max_episode_steps=50,
+    )
+
+    register(
         id='DragRope{}-v0'.format(suffix),
         entry_point='myenvs.ravens:DragRopeEnv',
         kwargs=kwargs,

@@ -39,7 +39,7 @@ def img2video(imgs, video_dir, fps):
     videoWriter.release()
     print('Finish changing!')
 
-def main_my_own(env_id="FetchThrow-v0"):
+def main_my_own(env_id="FetchThrow-v0", num=1):
     env = myenvs.make(env_id)
     rendered_imgs = []
 
@@ -47,7 +47,7 @@ def main_my_own(env_id="FetchThrow-v0"):
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
-    for j in range(1):
+    for j in range(num):
         _ = env.reset()
         if hasattr(env, "frames") and len(env.frames) > 0:
             rendered_imgs += env.frames
@@ -109,7 +109,7 @@ def main_my_softgym(env_id="RopeConfiguration-v0"):
     img_size = 256
 
     frames = []
-    for j in range(20):
+    for j in range(5):
         env.reset()
         frames.append(env.get_image(img_size, img_size))
         achieved_goals = []
@@ -179,5 +179,6 @@ def main_ravens(env_id="manipulating-rope"):
         img2video(frames, save_name, 24)
         print('Video generated and save to {}'.format(save_name))
 
-main_my_own(env_id="SweepPile-v0")
+main_my_own(env_id="SweepPile-v0", num=1)
 # main_ravens(env_id="manipulating-rope")
+# main_my_softgym()

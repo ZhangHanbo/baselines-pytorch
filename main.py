@@ -132,6 +132,7 @@ if __name__ == "__main__":
     #     configs['norm_ob'] = False
 
     logger = SummaryWriter(comment = args.alg + "-" + args.env)
+    configs["logger"] = logger
     output_dir = os.path.join("output", "models", args.alg, env_id)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
